@@ -315,106 +315,135 @@ async function loadGroups(collectionId: string): Promise<void> {
 }
 
 /**
- * Создает таблицу переменных для выбранной коллекции и тем
- * Основная функция создания таблицы с группировкой и сортировкой
+ * Получает и фильтрует переменные из коллекции по выбранным группам
+ * @param collectionId - ID коллекции переменных
+ * @param groups - Выбранные группы переменных
+ * @returns Отфильтрованный массив переменных
+ */
+async function getFilteredVariables(collectionId: string, groups: GroupInfo[]): Promise<Variable[]> {
+  const collection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
+  if (!collection) {
+    throw new Error('Collection not found');
+  }
+
+  // Получаем все переменные из коллекции
+  const allVariables = await figma.variables.getLocalVariablesAsync();
+  const collectionVariables = allVariables.filter(variable => 
+    variable.variableCollectionId === collectionId
+  );
+
+  // Фильтруем переменные по выбранным группам
+  const selectedPrefixes = groups.map(g => g.prefix);
+  const filteredVariables = collectionVariables.filter(variable => {
+    const prefix = variable.name.split('/')[0] || 'other';
+    return selectedPrefixes.includes(prefix);
+  });
+
+  if (filteredVariables.length === 0) {
+    throw new Error('No variables found in selected groups');
+  }
+
+  return filteredVariables;
+}
+
+/**
+ * Обрабатывает переменную и резолвит её значения для всех режимов
+ * @param variable - Переменная Figma для обработки
+ * @param modes - Массив режимов/тем
+ * @returns Обработанные данные переменной
+ */
+async function processVariableData(variable: Variable, modes: ModeInfo[]): Promise<VariableData> {
+  const values: { [modeId: string]: string | number | boolean | { r: number; g: number; b: number; a?: number } } = {};
+  const colorValues: { [modeId: string]: { r: number; g: number; b: number; a?: number } | null } = {};
+  const aliasVariables: { [modeId: string]: Variable | null } = {};
+  
+  // Получаем значения для каждой темы
+  for (const mode of modes) {
+    const rawValue = variable.valuesByMode[mode.modeId];
+    
+    // Резолвим значение для отображения
+    values[mode.modeId] = await resolveVariableValue(variable, mode.modeId, rawValue);
+    
+    // Для цветовых переменных также получаем фактический цвет
+    if (variable.resolvedType === 'COLOR') {
+      const resolvedColor = await resolveColorValue(variable, mode.modeId, rawValue);
+      colorValues[mode.modeId] = resolvedColor;
+      
+      // Проверяем, является ли это алиасом и сохраняем ссылку на переменную-алиас
+      if (typeof rawValue === 'object' && rawValue !== null && 'type' in rawValue && rawValue.type === 'VARIABLE_ALIAS' && 'id' in rawValue) {
+        try {
+          const referencedVariable = await figma.variables.getVariableByIdAsync(rawValue.id as string);
+          aliasVariables[mode.modeId] = referencedVariable || null;
+        } catch (error) {
+          aliasVariables[mode.modeId] = null;
+        }
+      } else {
+        // Не алиас - используем саму переменную
+        aliasVariables[mode.modeId] = variable;
+      }
+    }
+  }
+
+  return {
+    name: variable.name,
+    devToken: generateDevToken(variable.name),
+    variableType: variable.resolvedType,
+    values,
+    variable,
+    colorValues: variable.resolvedType === 'COLOR' ? colorValues : undefined,
+    aliasVariables: variable.resolvedType === 'COLOR' ? aliasVariables : undefined
+  };
+}
+
+/**
+ * Сортирует переменные по префиксам, затем по алфавиту внутри групп 
+ * @param variablesData - Массив данных переменных для сортировки
+ * @returns Отсортированный массив переменных
+ */
+function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableData[] {
+  return variablesData.sort((a, b) => {
+    const getPrefixAndPath = (name: string) => {
+      const parts = name.split('/');
+      const prefix = parts[0] || '';
+      return { prefix, fullPath: name };
+    };
+    
+    const aData = getPrefixAndPath(a.name);
+    const bData = getPrefixAndPath(b.name);
+    
+    // Сначала сортируем по префиксам
+    const prefixComparison = aData.prefix.localeCompare(bData.prefix, 'en', { sensitivity: 'base' });
+    if (prefixComparison !== 0) {
+      return prefixComparison;
+    }
+    
+    // Если префиксы одинаковые, сортируем по полному пути
+    return aData.fullPath.localeCompare(bData.fullPath, 'en', { sensitivity: 'base' });
+  });
+}
+
+/**
+ * Создает таблицу переменных из коллекции
+ * Координирующая функция, которая управляет всем процессом создания таблицы
  * @param collectionId - ID коллекции переменных
  * @param collectionName - Название коллекции
- * @param modes - Выбранные режимы/темы
+ * @param modes - Массив режимов/тем
  * @param groups - Выбранные группы переменных
  */
 async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[]): Promise<void> {
   try {
-    // Получаем коллекцию
-    const collection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
-    if (!collection) {
-      throw new Error('Collection not found');
-    }
+    // 1. Получаем и фильтруем переменные
+    const filteredVariables = await getFilteredVariables(collectionId, groups);
 
-    // Получаем все переменные из коллекции
-    const allVariables = await figma.variables.getLocalVariablesAsync();
-    const collectionVariables = allVariables.filter(variable => 
-      variable.variableCollectionId === collectionId
-    );
-
-    // Фильтруем переменные по выбранным группам
-    const selectedPrefixes = groups.map(g => g.prefix);
-    const filteredVariables = collectionVariables.filter(variable => {
-      const prefix = variable.name.split('/')[0] || 'other';
-      return selectedPrefixes.includes(prefix);
-    });
-
-    if (filteredVariables.length === 0) {
-      throw new Error('No variables found in selected groups');
-    }
-
-    // Подготавливаем данные переменных
+    // 2. Подготавливаем данные переменных
     const variablesData: VariableData[] = await Promise.all(
-      filteredVariables.map(async (variable) => {
-        const values: { [modeId: string]: string | number | boolean | { r: number; g: number; b: number; a?: number } } = {};
-        const colorValues: { [modeId: string]: { r: number; g: number; b: number; a?: number } | null } = {};
-        const aliasVariables: { [modeId: string]: Variable | null } = {};
-        
-        // Получаем значения для каждой темы
-        for (const mode of modes) {
-          const rawValue = variable.valuesByMode[mode.modeId];
-          
-          // Резолвим значение для отображения
-          values[mode.modeId] = await resolveVariableValue(variable, mode.modeId, rawValue);
-          
-          // Для цветовых переменных также получаем фактический цвет
-          if (variable.resolvedType === 'COLOR') {
-            const resolvedColor = await resolveColorValue(variable, mode.modeId, rawValue);
-            colorValues[mode.modeId] = resolvedColor;
-            
-            // Проверяем, является ли это алиасом и сохраняем ссылку на переменную-алиас
-            if (typeof rawValue === 'object' && rawValue !== null && 'type' in rawValue && rawValue.type === 'VARIABLE_ALIAS' && 'id' in rawValue) {
-              try {
-                const referencedVariable = await figma.variables.getVariableByIdAsync(rawValue.id as string);
-                aliasVariables[mode.modeId] = referencedVariable || null;
-              } catch (error) {
-                aliasVariables[mode.modeId] = null;
-              }
-            } else {
-              // Не алиас - используем саму переменную
-              aliasVariables[mode.modeId] = variable;
-            }
-          }
-        }
-
-        return {
-          name: variable.name,
-          devToken: generateDevToken(variable.name),
-          variableType: variable.resolvedType,
-          values,
-          variable,
-          colorValues: variable.resolvedType === 'COLOR' ? colorValues : undefined,
-          aliasVariables: variable.resolvedType === 'COLOR' ? aliasVariables : undefined
-        };
-      })
+      filteredVariables.map(variable => processVariableData(variable, modes))
     );
 
-    // Сортируем переменные по префиксам, а затем по алфавиту внутри групп
-    const sortedVariablesData = variablesData.sort((a, b) => {
-      const getPrefixAndPath = (name: string) => {
-        const parts = name.split('/');
-        const prefix = parts[0] || '';
-        return { prefix, fullPath: name };
-      };
-      
-      const aData = getPrefixAndPath(a.name);
-      const bData = getPrefixAndPath(b.name);
-      
-      // Сначала сортируем по префиксам
-      const prefixComparison = aData.prefix.localeCompare(bData.prefix, 'en', { sensitivity: 'base' });
-      if (prefixComparison !== 0) {
-        return prefixComparison;
-      }
-      
-      // Если префиксы одинаковые, сортируем по полному пути
-      return aData.fullPath.localeCompare(bData.fullPath, 'en', { sensitivity: 'base' });
-    });
+    // 3. Сортируем переменные
+    const sortedVariablesData = sortVariablesByPrefixAndName(variablesData);
     
-    // Создаем таблицу
+    // 4. Создаем таблицу
     await createTableFrame(sortedVariablesData, modes);
     
     figma.closePlugin('Variables table created successfully!');
@@ -617,25 +646,11 @@ async function resolveColorValue(variable: Variable, modeId: string, value: unkn
 }
 
 /**
- * Создает таблицу с переменными, разделенными по группам с повторяющимися заголовками
- * Основная функция компоновки всей таблицы с группировкой по префиксам и темам
+ * Группирует переменные по префиксам (первая часть имени до слэша)
  * @param variablesData - Массив данных переменных
- * @param modes - Массив режимов/тем
+ * @returns Map с группированными переменными по префиксам
  */
-async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]): Promise<void> {
-  // Создаем основной фрейм для таблицы
-  const tableFrame = figma.createFrame();
-  tableFrame.name = 'Variables Table';
-  tableFrame.layoutMode = 'HORIZONTAL';
-  tableFrame.primaryAxisSizingMode = 'AUTO';
-  tableFrame.counterAxisSizingMode = 'AUTO';
-  tableFrame.itemSpacing = TABLE_CONFIG.spacing.section;
-  
-  // Стили для таблицы
-  tableFrame.cornerRadius = 0;
-  tableFrame.fills = [];
-  
-  // Группируем переменные по префиксам
+function groupVariablesByPrefix(variablesData: VariableData[]): Map<string, VariableData[]> {
   const groupedVariables = new Map<string, VariableData[]>();
   
   variablesData.forEach(variable => {
@@ -646,7 +661,15 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
     groupedVariables.get(prefix)!.push(variable);
   });
   
-  // === 1. СОЗДАЕМ ОСНОВНУЮ ТАБЛИЦУ С ПЕРЕМЕННЫМИ ===
+  return groupedVariables;
+}
+
+/**
+ * Создает основную таблицу с колонками Design Token и Dev Token
+ * @param groupedVariables - Группированные переменные по префиксам
+ * @returns FrameNode основной таблицы
+ */
+async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>): Promise<FrameNode> {
   const mainTableFrame = figma.createFrame();
   mainTableFrame.name = 'Main Table';
   mainTableFrame.layoutMode = 'VERTICAL';
@@ -658,48 +681,23 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   
   // Создаем группы с заголовками
   for (const [prefix, variables] of groupedVariables) {
-    // Создаем фрейм для группы
-    const groupFrame = figma.createFrame();
-    groupFrame.name = `Group: ${prefix}`;
-    groupFrame.layoutMode = 'VERTICAL';
-    groupFrame.primaryAxisSizingMode = 'AUTO';
-    groupFrame.counterAxisSizingMode = 'AUTO';
-    groupFrame.itemSpacing = TABLE_CONFIG.spacing.cell;
-    groupFrame.paddingTop = 0;
-    groupFrame.paddingBottom = 0;
-    groupFrame.paddingLeft = 0;
-    groupFrame.paddingRight = 0;
-    
-    // Стили для группы
-    applyGroupStyles(groupFrame, createGroupStyles());
-    
-    // Создаем заголовок для группы (только Design Token и Dev Token)
-    const headerRow = await createMainHeaderRow();
-    groupFrame.appendChild(headerRow);
-    
-    // Создаем строки данных для переменных этой группы (без столбцов тем)
-    for (let i = 0; i < variables.length; i++) {
-      try {
-        const dataRow = await createMainDataRow(variables[i], i === variables.length - 1);
-        groupFrame.appendChild(dataRow);
-      } catch (error) {
-        // Пропускаем проблемные строки, но продолжаем создание таблицы
-        continue;
-      }
-    }
-    
-    // Добавляем группу в основную таблицу
+    const groupFrame = await createVariableGroup(prefix, variables, 'main');
     mainTableFrame.appendChild(groupFrame);
   }
   
-  // Добавляем основную таблицу в общий фрейм
-  tableFrame.appendChild(mainTableFrame);
+  return mainTableFrame;
+}
+
+/**
+ * Создает таблицы для каждой темы с колонкой значений
+ * @param groupedVariables - Группированные переменные по префиксам
+ * @param modes - Массив режимов/тем
+ * @returns Массив FrameNode для каждой темы
+ */
+async function createThemeVariablesTables(groupedVariables: Map<string, VariableData[]>, modes: ModeInfo[]): Promise<FrameNode[]> {
+  const themeFrames: FrameNode[] = [];
   
-  // === 2. СОЗДАЕМ ГРУППЫ ДЛЯ КАЖДОЙ ТЕМЫ ===
-  for (let modeIndex = 0; modeIndex < modes.length; modeIndex++) {
-    const mode = modes[modeIndex];
-    
-    // Создаем фрейм для темы
+  for (const mode of modes) {
     const themeFrame = figma.createFrame();
     themeFrame.name = `Theme: ${mode.name}`;
     themeFrame.layoutMode = 'VERTICAL';
@@ -711,67 +709,101 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
     
     // Создаем группы для каждого префикса в рамках темы
     for (const [prefix, variables] of groupedVariables) {
-      // Создаем фрейм для группы переменных этой темы
-      const themeGroupFrame = figma.createFrame();
-      themeGroupFrame.name = `${mode.name} - ${prefix}`;
-      themeGroupFrame.layoutMode = 'VERTICAL';
-      themeGroupFrame.primaryAxisSizingMode = 'AUTO';
-      themeGroupFrame.counterAxisSizingMode = 'AUTO';
-      themeGroupFrame.itemSpacing = TABLE_CONFIG.spacing.cell;
-      themeGroupFrame.paddingTop = 0;
-      themeGroupFrame.paddingBottom = 0;
-      themeGroupFrame.paddingLeft = 0;
-      themeGroupFrame.paddingRight = 0;
-      
-      // Стили для группы темы
-      applyGroupStyles(themeGroupFrame, createGroupStyles());
-      
-      // Создаем заголовок для группы темы
-      const themeHeaderRow = await createThemeHeaderRow(mode.name);
-      themeGroupFrame.appendChild(themeHeaderRow);
-      
-      // Создаем ячейки значений для переменных этой группы и темы
-      for (let i = 0; i < variables.length; i++) {
-        const variable = variables[i];
-        const value = variable.values[mode.modeId];
-        const colorValue = variable.colorValues?.[mode.modeId];
-        const aliasVariable = variable.aliasVariables?.[mode.modeId];
-        
-        try {
-          const valueCell = await createValueCell(value, variable.variableType, TABLE_CONFIG.sizes.columnWidth.value, colorValue, aliasVariable);
-          valueCell.name = `${variable.name} - ${mode.name}`;
-          
-          // Оборачиваем ячейку в контейнер для правильного отступа
-          const valueContainer = figma.createFrame();
-          valueContainer.name = `Value: ${variable.name}`;
-          valueContainer.layoutMode = 'HORIZONTAL';
-          valueContainer.primaryAxisSizingMode = 'AUTO';
-          valueContainer.counterAxisSizingMode = 'AUTO';
-          valueContainer.itemSpacing = 0;
-          valueContainer.fills = [createSolidFill(TABLE_COLORS.dataRow.background)];
-          
-          // Закругляем углы для последней строки
-          if (i === variables.length - 1) {
-            valueContainer.bottomLeftRadius = TABLE_CONFIG.radius.header;
-            valueContainer.bottomRightRadius = TABLE_CONFIG.radius.header;
-          }
-          
-          valueContainer.appendChild(valueCell);
-          themeGroupFrame.appendChild(valueContainer);
-        } catch (error) {
-          // Пропускаем проблемные ячейки, но продолжаем создание таблицы
-          continue;
-        }
-      }
-      
-      // Добавляем группу темы в фрейм темы
+      const themeGroupFrame = await createVariableGroup(prefix, variables, 'theme', mode);
       themeFrame.appendChild(themeGroupFrame);
     }
     
-    // Добавляем фрейм темы в общий фрейм
-    tableFrame.appendChild(themeFrame);
+    themeFrames.push(themeFrame);
   }
   
+  return themeFrames;
+}
+
+/**
+ * Создает группу переменных (для основной таблицы или темы)
+ * @param prefix - Префикс группы
+ * @param variables - Переменные группы
+ * @param type - Тип таблицы: 'main' или 'theme'
+ * @param mode - Информация о режиме (только для типа 'theme')
+ * @returns FrameNode группы переменных
+ */
+async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo): Promise<FrameNode> {
+  // Создаем фрейм для группы
+  const groupFrame = figma.createFrame();
+  groupFrame.name = type === 'main' ? `Group: ${prefix}` : `${mode!.name} - ${prefix}`;
+  groupFrame.layoutMode = 'VERTICAL';
+  groupFrame.primaryAxisSizingMode = 'AUTO';
+  groupFrame.counterAxisSizingMode = 'AUTO';
+  groupFrame.itemSpacing = TABLE_CONFIG.spacing.cell;
+  groupFrame.paddingTop = 0;
+  groupFrame.paddingBottom = 0;
+  groupFrame.paddingLeft = 0;
+  groupFrame.paddingRight = 0;
+  
+  // Стили для группы
+  applyGroupStyles(groupFrame, createGroupStyles());
+  
+  // Создаем заголовок
+  const headerRow = type === 'main' 
+    ? await createMainHeaderRow() 
+    : await createThemeHeaderRow(mode!.name);
+  groupFrame.appendChild(headerRow);
+  
+  // Создаем строки данных
+  for (let i = 0; i < variables.length; i++) {
+    try {
+      const dataRow = type === 'main' 
+        ? await createMainDataRow(variables[i], i === variables.length - 1)
+        : await createThemeDataRow(variables[i], mode!, i === variables.length - 1);
+      groupFrame.appendChild(dataRow);
+    } catch (error) {
+      // Пропускаем проблемные строки, но продолжаем создание таблицы
+      continue;
+    }
+  }
+  
+  return groupFrame;
+}
+
+/**
+ * Создает строку данных для темы (только колонка значений)
+ * @param variable - Данные переменной
+ * @param mode - Информация о режиме
+ * @param isLast - Является ли строка последней в группе
+ * @returns FrameNode строки данных
+ */
+async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast: boolean): Promise<FrameNode> {
+  const value = variable.values[mode.modeId];
+  const colorValue = variable.colorValues?.[mode.modeId];
+  const aliasVariable = variable.aliasVariables?.[mode.modeId];
+  
+  const valueCell = await createValueCell(value, variable.variableType, TABLE_CONFIG.sizes.columnWidth.value, colorValue, aliasVariable);
+  valueCell.name = `${variable.name} - ${mode.name}`;
+  
+  // Оборачиваем ячейку в контейнер для правильного отступа
+  const valueContainer = figma.createFrame();
+  valueContainer.name = `Value: ${variable.name}`;
+  valueContainer.layoutMode = 'HORIZONTAL';
+  valueContainer.primaryAxisSizingMode = 'AUTO';
+  valueContainer.counterAxisSizingMode = 'AUTO';
+  valueContainer.itemSpacing = 0;
+  valueContainer.fills = [createSolidFill(TABLE_COLORS.dataRow.background)];
+  
+  // Закругляем углы для последней строки
+  if (isLast) {
+    valueContainer.bottomLeftRadius = TABLE_CONFIG.radius.header;
+    valueContainer.bottomRightRadius = TABLE_CONFIG.radius.header;
+  }
+  
+  valueContainer.appendChild(valueCell);
+  return valueContainer;
+}
+
+/**
+ * Размещает таблицу в текущей видимой области пользователя
+ * @param tableFrame - Фрейм таблицы для размещения
+ */
+function positionTableInViewport(tableFrame: FrameNode): void {
   // Размещаем таблицу в текущей видимой области (где пользователь приближен)
   figma.currentPage.appendChild(tableFrame);
   
@@ -786,6 +818,40 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   // Выбираем таблицу
   figma.currentPage.selection = [tableFrame];
   figma.viewport.scrollAndZoomIntoView([tableFrame]);
+}
+
+/**
+ * Создает таблицу с переменными, разделенными по группам с повторяющимися заголовками
+ * Координирующая функция, которая управляет процессом создания всей таблицы
+ * @param variablesData - Массив данных переменных
+ * @param modes - Массив режимов/тем
+ */
+async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]): Promise<void> {
+  // Создаем основной фрейм для таблицы
+  const tableFrame = figma.createFrame();
+  tableFrame.name = 'Variables Table';
+  tableFrame.layoutMode = 'HORIZONTAL';
+  tableFrame.primaryAxisSizingMode = 'AUTO';
+  tableFrame.counterAxisSizingMode = 'AUTO';
+  tableFrame.itemSpacing = TABLE_CONFIG.spacing.section;
+  tableFrame.cornerRadius = 0;
+  tableFrame.fills = [];
+  
+  // 1. Группируем переменные по префиксам
+  const groupedVariables = groupVariablesByPrefix(variablesData);
+  
+  // 2. Создаем основную таблицу с переменными
+  const mainTableFrame = await createMainVariablesTable(groupedVariables);
+  tableFrame.appendChild(mainTableFrame);
+  
+  // 3. Создаем группы для каждой темы
+  const themeFrames = await createThemeVariablesTables(groupedVariables, modes);
+  themeFrames.forEach(themeFrame => {
+    tableFrame.appendChild(themeFrame);
+  });
+  
+  // 4. Размещаем таблицу в viewport
+  positionTableInViewport(tableFrame);
 }
 
 /**
@@ -921,98 +987,115 @@ async function createDataCell(text: string, width: number, type: 'design-token' 
 }
 
 /**
- * Создает ячейку значения переменной с цветным индикатором (если применимо)
- * @param value - Значение переменной для отображения
- * @param type - Тип переменной Figma
- * @param width - Ширина ячейки
- * @param colorValue - Разрешенное цветовое значение (опционально)
- * @param aliasVariable - Переменная алиас для привязки цвета (опционально)
- * @returns FrameNode с ячейкой значения
+ * Определяет цвет для отображения в цветном индикаторе
+ * @param value - Значение переменной
+ * @param type - Тип переменной
+ * @param colorValue - Разрешенное цветовое значение
+ * @returns Объект цвета или null если цвет не определен
  */
-async function createValueCell(value: string | number | boolean | { r: number; g: number; b: number; a?: number }, type: VariableResolvedDataType, width: number, colorValue?: { r: number; g: number; b: number; a?: number } | null, aliasVariable?: Variable | null): Promise<FrameNode> {
-  const cell = createBaseCell('Value Cell', width, 'HORIZONTAL');
-  
-  // Настраиваем выравнивание контента
-  cell.primaryAxisAlignItems = 'MIN'; // Выравнивание по левому краю (для горизонтального layout)
-  cell.counterAxisAlignItems = 'CENTER'; // Центрирование по вертикали
-  
-  // Определяем цвет для кружка
-  let colorForCircle: { r: number; g: number; b: number; a?: number } | null = null;
-  
-  if (type === 'COLOR') {
-    // Приоритет: сначала проверяем colorValue (разрешенный цвет)
-    if (colorValue && typeof colorValue === 'object' && 'r' in colorValue) {
-      colorForCircle = colorValue;
-    }
-    // Если colorValue нет, но value содержит цвет напрямую
-    else if (typeof value === 'object' && value && 'r' in value) {
-      colorForCircle = value as { r: number; g: number; b: number; a?: number };
-    }
+function determineColorForIndicator(
+  value: string | number | boolean | { r: number; g: number; b: number; a?: number }, 
+  type: VariableResolvedDataType, 
+  colorValue?: { r: number; g: number; b: number; a?: number } | null
+): { r: number; g: number; b: number; a?: number } | null {
+  if (type !== 'COLOR') {
+    return null;
+  }
+
+  // Приоритет: сначала проверяем colorValue (разрешенный цвет)
+  if (colorValue && typeof colorValue === 'object' && 'r' in colorValue) {
+    return colorValue;
   }
   
-  // Создаем цветной кружок для цветовых переменных
-  if (colorForCircle) {
-    const colorCircle = figma.createEllipse();
-    colorCircle.resize(TABLE_CONFIG.sizes.colorCircle, TABLE_CONFIG.sizes.colorCircle);
-    
-    // Проверяем, есть ли у нас алиас переменная для применения
-    if (aliasVariable && type === 'COLOR') {
-      try {
-        // Создаем начальный SOLID fill
-        const solidFill = createSolidFill(
-          { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
-          colorForCircle.a !== undefined ? colorForCircle.a : 1
-        );
-        
-        // Применяем алиас переменной к fill
-        const aliasedFill = figma.variables.setBoundVariableForPaint(solidFill, 'color', aliasVariable);
-        colorCircle.fills = [aliasedFill];
-      } catch (error) {
-        // Fallback на обычный цвет
-        colorCircle.fills = [createSolidFill(
-          { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
-          colorForCircle.a !== undefined ? colorForCircle.a : 1
-        )];
-      }
-    } else {
-      // Используем обычный цвет если нет алиаса
+  // Если colorValue нет, но value содержит цвет напрямую
+  if (typeof value === 'object' && value && 'r' in value) {
+    return value as { r: number; g: number; b: number; a?: number };
+  }
+  
+  return null;
+}
+
+/**
+ * Создает цветной индикатор (кружок) для цветовых переменных
+ * @param color - Цвет для индикатора
+ * @param type - Тип переменной
+ * @param aliasVariable - Переменная алиас для привязки цвета
+ * @returns EllipseNode с цветным индикатором
+ */
+function createColorIndicator(
+  color: { r: number; g: number; b: number; a?: number }, 
+  type: VariableResolvedDataType, 
+  aliasVariable?: Variable | null
+): EllipseNode {
+  const colorCircle = figma.createEllipse();
+  colorCircle.resize(TABLE_CONFIG.sizes.colorCircle, TABLE_CONFIG.sizes.colorCircle);
+  
+  // Проверяем, есть ли у нас алиас переменная для применения
+  if (aliasVariable && type === 'COLOR') {
+    try {
+      // Создаем начальный SOLID fill
+      const solidFill = createSolidFill(
+        { r: color.r, g: color.g, b: color.b },
+        color.a !== undefined ? color.a : 1
+      );
+      
+      // Применяем алиас переменной к fill
+      const aliasedFill = figma.variables.setBoundVariableForPaint(solidFill, 'color', aliasVariable);
+      colorCircle.fills = [aliasedFill];
+    } catch (error) {
+      // Fallback на обычный цвет
       colorCircle.fills = [createSolidFill(
-        { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
-        colorForCircle.a !== undefined ? colorForCircle.a : 1
+        { r: color.r, g: color.g, b: color.b },
+        color.a !== undefined ? color.a : 1
       )];
     }
-    
-    colorCircle.strokes = [createSolidFill(TABLE_COLORS.colorCircle.stroke, 0.12)];
-    colorCircle.strokeWeight = 1;
-    
-    cell.appendChild(colorCircle);
+  } else {
+    // Используем обычный цвет если нет алиаса
+    colorCircle.fills = [createSolidFill(
+      { r: color.r, g: color.g, b: color.b },
+      color.a !== undefined ? color.a : 1
+    )];
   }
   
-  // Создаем текст значения
-  let displayValue = '';
+  colorCircle.strokes = [createSolidFill(TABLE_COLORS.colorCircle.stroke, 0.12)];
+  colorCircle.strokeWeight = 1;
   
-  // Форматируем значение в зависимости от типа
+  return colorCircle;
+}
+
+/**
+ * Форматирует значение переменной для отображения
+ * @param value - Значение переменной
+ * @returns Отформатированная строка для отображения
+ */
+function formatValueForDisplay(value: string | number | boolean | { r: number; g: number; b: number; a?: number }): string {
   if (typeof value === 'string') {
     // Для строковых значений проверяем, является ли это названием переменной
     if (value.includes('/')) {
       // Это название переменной - форматируем его
-      displayValue = formatVariableName(value);
+      return formatVariableName(value);
     } else {
       // Обычная строка - показываем как есть
-      displayValue = value;
+      return value;
     }
   } else if (typeof value === 'number') {
-    displayValue = formatNumber(value);
+    return formatNumber(value);
   } else if (typeof value === 'boolean') {
-    displayValue = value ? 'true' : 'false';
+    return value ? 'true' : 'false';
   } else if (typeof value === 'object' && value && 'r' in value) {
     // Это прямое значение цвета - показываем цвет с учетом opacity
-    displayValue = formatColor(value as { r: number; g: number; b: number; a?: number });
+    return formatColor(value as { r: number; g: number; b: number; a?: number });
   } else {
-    displayValue = String(value);
+    return String(value);
   }
-  
-  // Создаем текст
+}
+
+/**
+ * Создает текстовый элемент для отображения значения
+ * @param displayValue - Отформатированное значение для отображения
+ * @returns TextNode с настроенным текстом
+ */
+async function createValueText(displayValue: string): Promise<TextNode> {
   const textNode = figma.createText();
   textNode.fontName = await loadFontWithFallback('primary');
   textNode.characters = displayValue;
@@ -1021,6 +1104,43 @@ async function createValueCell(value: string | number | boolean | { r: number; g
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
   
+  return textNode;
+}
+
+/**
+ * Создает ячейку значения переменной с цветным индикатором (если применимо)
+ * @param value - Значение переменной для отображения
+ * @param type - Тип переменной Figma
+ * @param width - Ширина ячейки
+ * @param colorValue - Разрешенное цветовое значение (опционально)
+ * @param aliasVariable - Переменная алиас для привязки цвета (опционально)
+ * @returns FrameNode с ячейкой значения
+ */
+async function createValueCell(
+  value: string | number | boolean | { r: number; g: number; b: number; a?: number }, 
+  type: VariableResolvedDataType, 
+  width: number, 
+  colorValue?: { r: number; g: number; b: number; a?: number } | null, 
+  aliasVariable?: Variable | null
+): Promise<FrameNode> {
+  const cell = createBaseCell('Value Cell', width, 'HORIZONTAL');
+  
+  // Настраиваем выравнивание контента
+  cell.primaryAxisAlignItems = 'MIN'; // Выравнивание по левому краю (для горизонтального layout)
+  cell.counterAxisAlignItems = 'CENTER'; // Центрирование по вертикали
+  
+  // Определяем цвет для кружка
+  const colorForCircle = determineColorForIndicator(value, type, colorValue);
+  
+  // Создаем цветной кружок для цветовых переменных
+  if (colorForCircle) {
+    const colorCircle = createColorIndicator(colorForCircle, type, aliasVariable);
+    cell.appendChild(colorCircle);
+  }
+  
+  // Форматируем и создаем текст значения
+  const displayValue = formatValueForDisplay(value);
+  const textNode = await createValueText(displayValue);
   cell.appendChild(textNode);
   
   return cell;
