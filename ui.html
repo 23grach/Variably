@@ -314,6 +314,23 @@
       color: var(--color-text-primary);
     }
     
+    .checkbox-group-header .checkbox-input:indeterminate {
+      border-color: var(--color-accent);
+      background: var(--color-accent);
+    }
+    
+    .checkbox-group-header .checkbox-input:indeterminate::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 2px;
+      background: white;
+      border-radius: 1px;
+      transform: translate(-50%, -50%);
+    }
+    
     .checkbox-group-content {
       max-height: 300px;
       overflow-y: auto;
@@ -634,6 +651,10 @@
               <h3 class="section-title">Themes & Modes</h3>
               <p class="section-subtitle">Select which themes to include in your table</p>
               <div class="checkbox-group">
+                <div class="checkbox-group-header">
+                  <input type="checkbox" id="select-all-modes" class="checkbox-input">
+                  <label for="select-all-modes" class="checkbox-label">Select All Themes</label>
+                </div>
                 <div class="checkbox-group-content" id="modes-container">
                   <!-- Modes will be populated here -->
                 </div>
@@ -799,6 +820,24 @@
           } else {
             selectedModes = selectedModes.filter(m => m.modeId !== mode.modeId);
           }
+          
+          // Update "Select All" checkbox state for modes
+          const selectAllCb = document.getElementById('select-all-modes');
+          const allModeCbs = container.querySelectorAll('input[type="checkbox"]');
+          const checkedModeCbs = container.querySelectorAll('input[type="checkbox"]:checked');
+          
+          // Set indeterminate state for partial selection
+          if (checkedModeCbs.length === 0) {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = false;
+          } else if (checkedModeCbs.length === allModeCbs.length) {
+            selectAllCb.checked = true;
+            selectAllCb.indeterminate = false;
+          } else {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = true;
+          }
+          
           updateCreateButton();
         };
         
@@ -811,6 +850,46 @@
         modeItem.appendChild(label);
         container.appendChild(modeItem);
       });
+      
+      // Setup "Select All" functionality for modes
+      const selectAllCheckbox = document.getElementById('select-all-modes');
+      
+      // Reset "Select All" state
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = false;
+      
+      selectAllCheckbox.onchange = function() {
+        // When indeterminate, treat as selecting all
+        const shouldCheckAll = this.indeterminate || this.checked;
+        
+        // Clear indeterminate state
+        this.indeterminate = false;
+        this.checked = shouldCheckAll;
+        
+        const modeCheckboxes = container.querySelectorAll('input[type="checkbox"]');
+        
+        // Clear current selection
+        selectedModes = [];
+        
+        modeCheckboxes.forEach(cb => {
+          cb.checked = shouldCheckAll;
+          
+          // If checked, add to selection
+          if (shouldCheckAll) {
+            const modeId = cb.value;
+            const mode = modes.find(m => m.modeId === modeId);
+            if (mode) {
+              selectedModes.push({
+                modeId: mode.modeId,
+                name: mode.name
+              });
+            }
+          }
+        });
+        
+        hideError('modes-error');
+        updateCreateButton();
+      };
     }
 
     function populateGroups(groups) {
@@ -975,7 +1054,7 @@
         collections.forEach(collection => {
           const option = document.createElement('option');
           option.value = collection.id;
-          option.textContent = collection.name;
+          option.textContent = `${collection.name} (${collection.variableCount} variables)`;
           select.appendChild(option);
         });
         

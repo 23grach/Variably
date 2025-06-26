@@ -70,12 +70,21 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
 async function loadCollections(): Promise<void> {
   try {
     const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const allVariables = await figma.variables.getLocalVariablesAsync();
     
-    const collectionsData = collections.map(collection => ({
-      id: collection.id,
-      name: collection.name,
-      modes: collection.modes
-    }));
+    const collectionsData = collections.map(collection => {
+      // Подсчитываем количество переменных в каждой коллекции
+      const variableCount = allVariables.filter(variable => 
+        variable.variableCollectionId === collection.id
+      ).length;
+      
+      return {
+        id: collection.id,
+        name: collection.name,
+        modes: collection.modes,
+        variableCount: variableCount
+      };
+    });
 
     figma.ui.postMessage({
       type: 'collections-loaded',
@@ -529,14 +538,14 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   // Создаем основной фрейм для таблицы
   const tableFrame = figma.createFrame();
   tableFrame.name = 'Variables Table';
-  tableFrame.layoutMode = 'VERTICAL';
+  tableFrame.layoutMode = 'HORIZONTAL';
   tableFrame.primaryAxisSizingMode = 'AUTO';
   tableFrame.counterAxisSizingMode = 'AUTO';
-  tableFrame.itemSpacing = 16; // 16px между группами
+  tableFrame.itemSpacing = 32; // 32px между основными секциями
   
   // Стили для таблицы
-  tableFrame.cornerRadius = 0; // Убираем радиус, так как группы будут иметь свои радиусы
-  tableFrame.fills = []; // Убираем фон основного фрейма
+  tableFrame.cornerRadius = 0;
+  tableFrame.fills = [];
   
   // Группируем переменные по префиксам
   const groupedVariables = new Map<string, VariableData[]>();
@@ -549,7 +558,17 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
     groupedVariables.get(prefix)!.push(variable);
   });
   
-  console.log(`Creating ${groupedVariables.size} groups with repeating headers`);
+  console.log(`Creating main table with ${groupedVariables.size} variable groups and ${modes.length} theme columns`);
+  
+  // === 1. СОЗДАЕМ ОСНОВНУЮ ТАБЛИЦУ С ПЕРЕМЕННЫМИ ===
+  const mainTableFrame = figma.createFrame();
+  mainTableFrame.name = 'Main Table';
+  mainTableFrame.layoutMode = 'VERTICAL';
+  mainTableFrame.primaryAxisSizingMode = 'AUTO';
+  mainTableFrame.counterAxisSizingMode = 'AUTO';
+  mainTableFrame.itemSpacing = 16;
+  mainTableFrame.fills = []; // Убираем фон
+  mainTableFrame.strokes = []; // Убираем границы
   
   // Создаем группы с заголовками
   let groupIndex = 0;
@@ -563,22 +582,26 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
     groupFrame.layoutMode = 'VERTICAL';
     groupFrame.primaryAxisSizingMode = 'AUTO';
     groupFrame.counterAxisSizingMode = 'AUTO';
-    groupFrame.itemSpacing = 1; // 1px разделитель между строками
+    groupFrame.itemSpacing = 1;
+    groupFrame.paddingTop = 0;
+    groupFrame.paddingBottom = 0;
+    groupFrame.paddingLeft = 0;
+    groupFrame.paddingRight = 0;
     
-    // Стили для группы - только внешняя граница
-    groupFrame.cornerRadius = 16;
-    groupFrame.strokes = [{
-      type: 'SOLID',
-      color: { r: 163/255, g: 171/255, b: 187/255 },
-      opacity: 0.12
-    }];
-    groupFrame.strokeWeight = 1;
-    groupFrame.fills = [{ type: 'SOLID', color: { r: 163/255, g: 171/255, b: 187/255 }, opacity: 0.12 }]; // Фон для разделителей
+          // Стили для группы
+      groupFrame.cornerRadius = 16;
+      groupFrame.strokes = [{
+        type: 'SOLID',
+        color: { r: 163/255, g: 171/255, b: 187/255 },
+        opacity: 0.3
+      }];
+      groupFrame.strokeWeight = 1;
+      groupFrame.fills = [{ type: 'SOLID', color: { r: 163/255, g: 171/255, b: 187/255 }, opacity: 0.03 }]; // Легкий фон для разделения
     
-    // Создаем заголовок для группы
+    // Создаем заголовок для группы (только Design Token и Dev Token)
     console.log(`Creating header for group: ${prefix}`);
     try {
-      const headerRow = await createHeaderRow(modes);
+      const headerRow = await createMainHeaderRow();
       groupFrame.appendChild(headerRow);
       console.log(`Header for group "${prefix}" created successfully`);
     } catch (error) {
@@ -586,12 +609,12 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
       throw error;
     }
     
-    // Создаем строки данных для переменных этой группы
+    // Создаем строки данных для переменных этой группы (без столбцов тем)
     console.log(`Creating ${variables.length} data rows for group: ${prefix}`);
     for (let i = 0; i < variables.length; i++) {
       console.log(`Creating row ${i + 1}/${variables.length} for variable: ${variables[i].name}`);
       try {
-        const dataRow = await createDataRow(variables[i], modes, i === variables.length - 1);
+        const dataRow = await createMainDataRow(variables[i], i === variables.length - 1);
         groupFrame.appendChild(dataRow);
         console.log(`Row ${i + 1} for group "${prefix}" created successfully`);
       } catch (error) {
@@ -600,8 +623,98 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
     }
     
     // Добавляем группу в основную таблицу
-    tableFrame.appendChild(groupFrame);
+    mainTableFrame.appendChild(groupFrame);
     console.log(`Group "${prefix}" completed and added to table`);
+  }
+  
+  // Добавляем основную таблицу в общий фрейм
+  tableFrame.appendChild(mainTableFrame);
+  
+  // === 2. СОЗДАЕМ ГРУППЫ ДЛЯ КАЖДОЙ ТЕМЫ ===
+  for (let modeIndex = 0; modeIndex < modes.length; modeIndex++) {
+    const mode = modes[modeIndex];
+    console.log(`Creating theme group ${modeIndex + 1}/${modes.length}: "${mode.name}"`);
+    
+    // Создаем фрейм для темы
+    const themeFrame = figma.createFrame();
+    themeFrame.name = `Theme: ${mode.name}`;
+    themeFrame.layoutMode = 'VERTICAL';
+    themeFrame.primaryAxisSizingMode = 'AUTO';
+    themeFrame.counterAxisSizingMode = 'AUTO';
+    themeFrame.itemSpacing = 16;
+    themeFrame.fills = []; // Убираем фон
+    themeFrame.strokes = []; // Убираем границы
+    
+    // Создаем группы для каждого префикса в рамках темы
+    for (const [prefix, variables] of groupedVariables) {
+      // Создаем фрейм для группы переменных этой темы
+      const themeGroupFrame = figma.createFrame();
+      themeGroupFrame.name = `${mode.name} - ${prefix}`;
+      themeGroupFrame.layoutMode = 'VERTICAL';
+      themeGroupFrame.primaryAxisSizingMode = 'AUTO';
+      themeGroupFrame.counterAxisSizingMode = 'AUTO';
+      themeGroupFrame.itemSpacing = 1;
+      themeGroupFrame.paddingTop = 0;
+      themeGroupFrame.paddingBottom = 0;
+      themeGroupFrame.paddingLeft = 0;
+      themeGroupFrame.paddingRight = 0;
+      
+             // Стили для группы темы
+       themeGroupFrame.cornerRadius = 16;
+       themeGroupFrame.strokes = [{
+         type: 'SOLID',
+         color: { r: 163/255, g: 171/255, b: 187/255 },
+         opacity: 0.3
+       }];
+       themeGroupFrame.strokeWeight = 1;
+       themeGroupFrame.fills = [{ type: 'SOLID', color: { r: 163/255, g: 171/255, b: 187/255 }, opacity: 0.03 }]; // Легкий фон для разделения
+      
+      // Создаем заголовок для группы темы
+      const themeHeaderRow = await createThemeHeaderRow(mode.name);
+      themeGroupFrame.appendChild(themeHeaderRow);
+      
+      // Создаем ячейки значений для переменных этой группы и темы
+      for (let i = 0; i < variables.length; i++) {
+        const variable = variables[i];
+        const value = variable.values[mode.modeId];
+        const colorValue = variable.colorValues?.[mode.modeId];
+        const aliasVariable = variable.aliasVariables?.[mode.modeId];
+        
+        try {
+          const valueCell = await createValueCell(value, variable.variableType, 560, colorValue, aliasVariable);
+          valueCell.name = `${variable.name} - ${mode.name}`;
+          
+          // Оборачиваем ячейку в контейнер для правильного отступа
+          const valueContainer = figma.createFrame();
+          valueContainer.name = `Value: ${variable.name}`;
+          valueContainer.layoutMode = 'HORIZONTAL';
+          valueContainer.primaryAxisSizingMode = 'AUTO';
+          valueContainer.counterAxisSizingMode = 'AUTO';
+          valueContainer.itemSpacing = 0;
+          valueContainer.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }]; // Возвращаем темный фон
+          
+          // Закругляем углы для последней строки
+          if (i === variables.length - 1) {
+            valueContainer.bottomLeftRadius = 15;
+            valueContainer.bottomRightRadius = 15;
+          }
+          
+          valueContainer.appendChild(valueCell);
+          themeGroupFrame.appendChild(valueContainer);
+          
+          console.log(`Value cell for ${variable.name} in ${mode.name} created successfully`);
+        } catch (error) {
+          console.error(`Error creating value cell for ${variable.name} in ${mode.name}:`, error);
+        }
+      }
+      
+      // Добавляем группу темы в фрейм темы
+      themeFrame.appendChild(themeGroupFrame);
+    }
+    
+    // Добавляем фрейм темы в общий фрейм
+    tableFrame.appendChild(themeFrame);
+    console.log(`Theme group "${mode.name}" completed and added to table`);
   }
   
   // Размещаем таблицу по центру страницы
@@ -618,25 +731,25 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   figma.currentPage.selection = [tableFrame];
   figma.viewport.scrollAndZoomIntoView([tableFrame]);
   
-  console.log(`Table with ${groupedVariables.size} groups created successfully`);
+  console.log(`Table with ${groupedVariables.size} groups and ${modes.length} theme columns created successfully`);
 }
 
 /**
- * Создает строку заголовка таблицы
+ * Создает строку заголовка основной таблицы (только Design Token и Dev Token)
  */
-async function createHeaderRow(modes: ModeInfo[]): Promise<FrameNode> {
-  console.log('createHeaderRow called with modes:', modes.length);
+async function createMainHeaderRow(): Promise<FrameNode> {
+  console.log('createMainHeaderRow called');
   
   const headerRow = figma.createFrame();
-  headerRow.name = 'Header Row';
+  headerRow.name = 'Main Header Row';
   headerRow.layoutMode = 'HORIZONTAL';
   headerRow.primaryAxisSizingMode = 'AUTO';
   headerRow.counterAxisSizingMode = 'AUTO';
   headerRow.itemSpacing = 0;
-  console.log('Header row frame created');
+  console.log('Main header row frame created');
   
-  // Простые стили заголовка - только фон, без границ
-  headerRow.fills = [{ type: 'SOLID', color: { r: 29/255, g: 30/255, b: 32/255 } }];
+  // Стили заголовка
+  headerRow.fills = [{ type: 'SOLID', color: { r: 29/255, g: 30/255, b: 32/255 } }]; // Возвращаем темный фон
   
   // Закругляем только верхние углы заголовка
   headerRow.topLeftRadius = 15;
@@ -656,95 +769,89 @@ async function createHeaderRow(modes: ModeInfo[]): Promise<FrameNode> {
   headerRow.appendChild(devTokenHeader);
   console.log('Dev Token header cell created');
   
-  // Колонки для каждой темы
-  console.log('Creating mode header cells...', modes.length);
-  for (let i = 0; i < modes.length; i++) {
-    const mode = modes[i];
-    console.log(`Creating mode header ${i + 1}/${modes.length}: ${mode.name}`);
-    try {
-      const modeHeader = await createHeaderCell(mode.name, 560);
-      headerRow.appendChild(modeHeader);
-      console.log(`Mode header ${i + 1} created successfully`);
-    } catch (error) {
-      console.error(`Error creating mode header ${i + 1}:`, error);
-      throw error;
-    }
-  }
-  
-  console.log('Header row completed');
+  console.log('Main header row completed');
   return headerRow;
 }
 
 /**
- * Создает ячейку заголовка
+ * Создает строку заголовка для темы
  */
-async function createHeaderCell(text: string, width: number): Promise<FrameNode> {
-  console.log(`createHeaderCell called for: "${text}", width: ${width}`);
-  const cell = figma.createFrame();
-  cell.name = `Header: ${text}`;
-  cell.layoutMode = 'VERTICAL';
-  cell.primaryAxisSizingMode = 'FIXED';
-  cell.counterAxisSizingMode = 'AUTO';
-  cell.resize(width, 48);
-  cell.paddingLeft = 16;
-  cell.paddingRight = 16;
-  cell.paddingTop = 12;
-  cell.paddingBottom = 12;
-  cell.itemSpacing = 0;
+async function createThemeHeaderRow(themeName: string): Promise<FrameNode> {
+  console.log('createThemeHeaderRow called for:', themeName);
   
-  // Настраиваем выравнивание контента по центру вертикально
-  cell.primaryAxisAlignItems = 'CENTER'; // Центрирование по вертикали
-  cell.counterAxisAlignItems = 'MIN'; // Выравнивание по левому краю
+  const headerRow = figma.createFrame();
+  headerRow.name = `Theme Header: ${themeName}`;
+  headerRow.layoutMode = 'HORIZONTAL';
+  headerRow.primaryAxisSizingMode = 'AUTO';
+  headerRow.counterAxisSizingMode = 'AUTO';
+  headerRow.itemSpacing = 0;
   
-  console.log('Header cell frame setup completed');
+  // Стили заголовка
+  headerRow.fills = [{ type: 'SOLID', color: { r: 29/255, g: 30/255, b: 32/255 } }]; // Возвращаем темный фон
   
-  // Простые стили ячейки - только прозрачный фон, без границ
-  cell.fills = [];
+  // Закругляем только верхние углы заголовка
+  headerRow.topLeftRadius = 15;
+  headerRow.topRightRadius = 15;
+  headerRow.bottomLeftRadius = 0;
+  headerRow.bottomRightRadius = 0;
   
-  // Создаем текст
-  console.log('Creating header text node...');
-  const textNode = figma.createText();
-  console.log('Text node created, loading font for this specific node...');
+  // Создаем заголовок темы
+  const themeHeader = await createHeaderCell(themeName, 560);
+  headerRow.appendChild(themeHeader);
   
-  // Используем системный шрифт, который гарантированно доступен
-  console.log('Loading Roboto font...');
-  try {
-    await figma.loadFontAsync({ family: "Roboto", style: "Medium" });
-    console.log('Roboto Medium loaded successfully');
-    textNode.fontName = { family: "Roboto", style: "Medium" };
-  } catch (error) {
-    console.warn('Roboto Medium not available, trying Regular:', error);
-    try {
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      console.log('Roboto Regular loaded successfully');
-      textNode.fontName = { family: "Roboto", style: "Regular" };
-    } catch (error2) {
-      console.error('No Roboto available, using default font:', error2);
-      // Оставляем дефолтный шрифт - не устанавливаем fontName
-    }
+  console.log('Theme header row completed');
+  return headerRow;
+}
+
+/**
+ * Создает строку данных основной таблицы (без столбцов тем)
+ */
+async function createMainDataRow(variableData: VariableData, isLast: boolean): Promise<FrameNode> {
+  console.log('createMainDataRow called for:', variableData.name);
+  
+  console.log('Creating main data row frame...');
+  const dataRow = figma.createFrame();
+  dataRow.name = `Main Data Row: ${variableData.name}`;
+  dataRow.layoutMode = 'HORIZONTAL';
+  dataRow.primaryAxisSizingMode = 'AUTO';
+  dataRow.counterAxisSizingMode = 'AUTO';
+  dataRow.itemSpacing = 0;
+  console.log('Main data row frame created');
+  
+  // Стили строки данных
+  dataRow.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }]; // Возвращаем темный фон
+  
+  // Закругляем только нижние углы для последней строки
+  if (isLast) {
+    dataRow.topLeftRadius = 0;
+    dataRow.topRightRadius = 0;
+    dataRow.bottomLeftRadius = 15;
+    dataRow.bottomRightRadius = 15;
+  } else {
+    // Средние строки без закруглений
+    dataRow.cornerRadius = 0;
   }
   
-  // Теперь устанавливаем текст ПОСЛЕ загрузки шрифта
-  textNode.characters = text;
-  console.log('Characters set');
-  textNode.fontSize = 16;
-  console.log('Font size set');
+  // Design Token ячейка
+  console.log('Creating design token cell...');
+  const designTokenCell = await createDataCell(formatVariableName(variableData.name), 480, 'design-token');
+  dataRow.appendChild(designTokenCell);
+  console.log('Design token cell created');
   
-  textNode.fills = [{ type: 'SOLID', color: { r: 154/255, g: 161/255, b: 177/255 } }];
-  textNode.textAlignHorizontal = 'LEFT';
-  textNode.textAlignVertical = 'CENTER';
-  console.log('Text properties set, adding to cell...');
+  // Dev Token ячейка
+  console.log('Creating dev token cell...');
+  const devTokenCell = await createDataCell(variableData.devToken, 552, 'dev-token');
+  dataRow.appendChild(devTokenCell);
+  console.log('Dev token cell created');
   
-  cell.appendChild(textNode);
-  console.log(`Header cell "${text}" completed`);
-  
-  return cell;
+  console.log('Main data row completed for:', variableData.name);
+  return dataRow;
 }
 
 /**
  * Создает строку данных для переменной
  */
-async function createDataRow(variableData: VariableData, modes: ModeInfo[], isLast: boolean): Promise<FrameNode> {
+async function _createDataRow(variableData: VariableData, modes: ModeInfo[], isLast: boolean): Promise<FrameNode> {
   console.log('createDataRow called for:', variableData.name);
   
   console.log('Creating data row frame...');
@@ -757,7 +864,7 @@ async function createDataRow(variableData: VariableData, modes: ModeInfo[], isLa
   console.log('Data row frame created');
   
   // Простые стили строки данных - только фон, без границ
-  dataRow.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }];
+  dataRow.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }]; // Возвращаем темный фон
   
   // Закругляем только нижние углы для последней строки
   if (isLast) {
@@ -1055,5 +1162,71 @@ async function createValueCell(value: string | number | boolean | { r: number; g
   cell.appendChild(textNode);
   
   console.log('Value cell completed');
+  return cell;
+}
+
+/**
+ * Создает ячейку заголовка
+ */
+async function createHeaderCell(text: string, width: number): Promise<FrameNode> {
+  console.log(`createHeaderCell called for: "${text}", width: ${width}`);
+  const cell = figma.createFrame();
+  cell.name = `Header: ${text}`;
+  cell.layoutMode = 'VERTICAL';
+  cell.primaryAxisSizingMode = 'FIXED';
+  cell.counterAxisSizingMode = 'AUTO';
+  cell.resize(width, 48);
+  cell.paddingLeft = 16;
+  cell.paddingRight = 16;
+  cell.paddingTop = 12;
+  cell.paddingBottom = 12;
+  cell.itemSpacing = 0;
+  
+  // Настраиваем выравнивание контента по центру вертикально
+  cell.primaryAxisAlignItems = 'CENTER'; // Центрирование по вертикали
+  cell.counterAxisAlignItems = 'MIN'; // Выравнивание по левому краю
+  
+  console.log('Header cell frame setup completed');
+  
+  // Простые стили ячейки - только прозрачный фон, без границ
+  cell.fills = [];
+  
+  // Создаем текст
+  console.log('Creating header text node...');
+  const textNode = figma.createText();
+  console.log('Text node created, loading font for this specific node...');
+  
+  // Используем системный шрифт, который гарантированно доступен
+  console.log('Loading Roboto font...');
+  try {
+    await figma.loadFontAsync({ family: "Roboto", style: "Medium" });
+    console.log('Roboto Medium loaded successfully');
+    textNode.fontName = { family: "Roboto", style: "Medium" };
+  } catch (error) {
+    console.warn('Roboto Medium not available, trying Regular:', error);
+    try {
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      console.log('Roboto Regular loaded successfully');
+      textNode.fontName = { family: "Roboto", style: "Regular" };
+    } catch (error2) {
+      console.error('No Roboto available, using default font:', error2);
+      // Оставляем дефолтный шрифт - не устанавливаем fontName
+    }
+  }
+  
+  // Теперь устанавливаем текст ПОСЛЕ загрузки шрифта
+  textNode.characters = text;
+  console.log('Characters set');
+  textNode.fontSize = 16;
+  console.log('Font size set');
+  
+  textNode.fills = [{ type: 'SOLID', color: { r: 154/255, g: 161/255, b: 177/255 } }];
+  textNode.textAlignHorizontal = 'LEFT';
+  textNode.textAlignVertical = 'CENTER';
+  console.log('Text properties set, adding to cell...');
+  
+  cell.appendChild(textNode);
+  console.log(`Header cell "${text}" completed`);
+  
   return cell;
 }
