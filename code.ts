@@ -282,6 +282,13 @@ async function createVariablesTable(collectionId: string, collectionName: string
 }
 
 /**
+ * Форматирует название переменной, заменяя слэши на дефисы
+ */
+function formatVariableName(variableName: string): string {
+  return variableName.replace(/\//g, '-');
+}
+
+/**
  * Генерирует dev token из названия переменной
  */
 function generateDevToken(variableName: string): string {
@@ -361,8 +368,8 @@ async function resolveVariableValue(variable: Variable, modeId: string, value: u
       const referencedVariable = await figma.variables.getVariableByIdAsync(value.id as string);
       if (referencedVariable) {
         console.log(`📝 Alias points to: ${referencedVariable.name}`);
-        // Для alias переменных возвращаем имя референсной переменной
-        return referencedVariable.name;
+        // Для alias переменных возвращаем имя референсной переменной с форматированием
+        return formatVariableName(referencedVariable.name);
       } else {
         console.log('📝 Referenced variable not found');
         return 'Unknown variable';
@@ -489,7 +496,7 @@ async function resolveColorValue(variable: Variable, modeId: string, value: unkn
 }
 
 /**
- * Создает фрейм с таблицей переменных
+ * Создает таблицу с переменными, разделенными по группам с повторяющимися заголовками
  */
 async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]): Promise<void> {
   console.log('Creating table frame with', variablesData.length, 'variables and', modes.length, 'modes');
@@ -500,40 +507,76 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   tableFrame.layoutMode = 'VERTICAL';
   tableFrame.primaryAxisSizingMode = 'AUTO';
   tableFrame.counterAxisSizingMode = 'AUTO';
-  tableFrame.itemSpacing = 0;
+  tableFrame.itemSpacing = 16; // 16px между группами
   
   // Стили для таблицы
-  tableFrame.cornerRadius = 16;
-  tableFrame.strokes = [{
-    type: 'SOLID',
-    color: { r: 163/255, g: 171/255, b: 187/255 },
-    opacity: 0.12
-  }];
-  tableFrame.strokeWeight = 1;
+  tableFrame.cornerRadius = 0; // Убираем радиус, так как группы будут иметь свои радиусы
+  tableFrame.fills = []; // Убираем фон основного фрейма
   
-  // Создаем заголовок таблицы
-  console.log('Creating header row...');
-  try {
-    const headerRow = await createHeaderRow(modes);
-    console.log('Header row created, adding to table...');
-    tableFrame.appendChild(headerRow);
-    console.log('Header row added to table successfully');
-  } catch (error) {
-    console.error('Error creating header row:', error);
-    throw error;
-  }
+  // Группируем переменные по префиксам
+  const groupedVariables = new Map<string, VariableData[]>();
   
-  // Создаем строки данных
-  console.log('Creating data rows...');
-  for (let i = 0; i < variablesData.length; i++) {
-    console.log(`Creating row ${i + 1}/${variablesData.length} for variable:`, variablesData[i].name);
-    try {
-      const dataRow = await createDataRow(variablesData[i], modes, i === variablesData.length - 1);
-      tableFrame.appendChild(dataRow);
-      console.log(`Row ${i + 1} created successfully`);
-    } catch (error) {
-      console.error(`Error creating row ${i + 1}:`, error);
+  variablesData.forEach(variable => {
+    const prefix = variable.name.split('/')[0] || 'other';
+    if (!groupedVariables.has(prefix)) {
+      groupedVariables.set(prefix, []);
     }
+    groupedVariables.get(prefix)!.push(variable);
+  });
+  
+  console.log(`Creating ${groupedVariables.size} groups with repeating headers`);
+  
+  // Создаем группы с заголовками
+  let groupIndex = 0;
+  for (const [prefix, variables] of groupedVariables) {
+    groupIndex++;
+    console.log(`Creating group ${groupIndex}/${groupedVariables.size}: "${prefix}" with ${variables.length} variables`);
+    
+    // Создаем фрейм для группы
+    const groupFrame = figma.createFrame();
+    groupFrame.name = `Group: ${prefix}`;
+    groupFrame.layoutMode = 'VERTICAL';
+    groupFrame.primaryAxisSizingMode = 'AUTO';
+    groupFrame.counterAxisSizingMode = 'AUTO';
+    groupFrame.itemSpacing = 1; // 1px разделитель между строками
+    
+    // Стили для группы - только внешняя граница
+    groupFrame.cornerRadius = 16;
+    groupFrame.strokes = [{
+      type: 'SOLID',
+      color: { r: 163/255, g: 171/255, b: 187/255 },
+      opacity: 0.12
+    }];
+    groupFrame.strokeWeight = 1;
+    groupFrame.fills = [{ type: 'SOLID', color: { r: 163/255, g: 171/255, b: 187/255 }, opacity: 0.12 }]; // Фон для разделителей
+    
+    // Создаем заголовок для группы
+    console.log(`Creating header for group: ${prefix}`);
+    try {
+      const headerRow = await createHeaderRow(modes);
+      groupFrame.appendChild(headerRow);
+      console.log(`Header for group "${prefix}" created successfully`);
+    } catch (error) {
+      console.error(`Error creating header for group "${prefix}":`, error);
+      throw error;
+    }
+    
+    // Создаем строки данных для переменных этой группы
+    console.log(`Creating ${variables.length} data rows for group: ${prefix}`);
+    for (let i = 0; i < variables.length; i++) {
+      console.log(`Creating row ${i + 1}/${variables.length} for variable: ${variables[i].name}`);
+      try {
+        const dataRow = await createDataRow(variables[i], modes, i === variables.length - 1);
+        groupFrame.appendChild(dataRow);
+        console.log(`Row ${i + 1} for group "${prefix}" created successfully`);
+      } catch (error) {
+        console.error(`Error creating row ${i + 1} for group "${prefix}":`, error);
+      }
+    }
+    
+    // Добавляем группу в основную таблицу
+    tableFrame.appendChild(groupFrame);
+    console.log(`Group "${prefix}" completed and added to table`);
   }
   
   // Размещаем таблицу по центру страницы
@@ -549,6 +592,8 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   // Выбираем таблицу
   figma.currentPage.selection = [tableFrame];
   figma.viewport.scrollAndZoomIntoView([tableFrame]);
+  
+  console.log(`Table with ${groupedVariables.size} groups created successfully`);
 }
 
 /**
@@ -556,7 +601,6 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
  */
 async function createHeaderRow(modes: ModeInfo[]): Promise<FrameNode> {
   console.log('createHeaderRow called with modes:', modes.length);
-  // Шрифт уже загружен в createTableFrame
   
   const headerRow = figma.createFrame();
   headerRow.name = 'Header Row';
@@ -566,14 +610,14 @@ async function createHeaderRow(modes: ModeInfo[]): Promise<FrameNode> {
   headerRow.itemSpacing = 0;
   console.log('Header row frame created');
   
-  // Стили заголовка
+  // Простые стили заголовка - только фон, без границ
   headerRow.fills = [{ type: 'SOLID', color: { r: 29/255, g: 30/255, b: 32/255 } }];
-  headerRow.strokes = [{
-    type: 'SOLID',
-    color: { r: 163/255, g: 171/255, b: 187/255 },
-    opacity: 0.12
-  }];
-  headerRow.strokeWeight = 1;
+  
+  // Закругляем только верхние углы заголовка
+  headerRow.topLeftRadius = 15;
+  headerRow.topRightRadius = 15;
+  headerRow.bottomLeftRadius = 0;
+  headerRow.bottomRightRadius = 0;
   
   // Design Token колонка
   console.log('Creating Design Token header cell...');
@@ -622,19 +666,15 @@ async function createHeaderCell(text: string, width: number): Promise<FrameNode>
   cell.paddingTop = 12;
   cell.paddingBottom = 12;
   cell.itemSpacing = 0;
+  
+  // Настраиваем выравнивание контента по центру вертикально
+  cell.primaryAxisAlignItems = 'CENTER'; // Центрирование по вертикали
+  cell.counterAxisAlignItems = 'MIN'; // Выравнивание по левому краю
+  
   console.log('Header cell frame setup completed');
   
-  // Стили ячейки
-  cell.fills = [{ type: 'SOLID', color: { r: 29/255, g: 30/255, b: 32/255 } }];
-  
-  // Добавляем правую границу (кроме последней ячейки)
-  cell.strokes = [{
-    type: 'SOLID',
-    color: { r: 163/255, g: 171/255, b: 187/255 },
-    opacity: 0.12
-  }];
-  cell.strokeWeight = 1;
-  cell.strokeAlign = 'INSIDE';
+  // Простые стили ячейки - только прозрачный фон, без границ
+  cell.fills = [];
   
   // Создаем текст
   console.log('Creating header text node...');
@@ -681,7 +721,6 @@ async function createHeaderCell(text: string, width: number): Promise<FrameNode>
  */
 async function createDataRow(variableData: VariableData, modes: ModeInfo[], isLast: boolean): Promise<FrameNode> {
   console.log('createDataRow called for:', variableData.name);
-  // Шрифты уже загружены в createTableFrame
   
   console.log('Creating data row frame...');
   const dataRow = figma.createFrame();
@@ -692,33 +731,23 @@ async function createDataRow(variableData: VariableData, modes: ModeInfo[], isLa
   dataRow.itemSpacing = 0;
   console.log('Data row frame created');
   
-  // Стили строки данных
+  // Простые стили строки данных - только фон, без границ
   dataRow.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }];
   
-  // Добавляем верхнюю границу
-  dataRow.strokes = [{
-    type: 'SOLID',
-    color: { r: 163/255, g: 171/255, b: 187/255 },
-    opacity: 0.12
-  }];
-  dataRow.strokeWeight = 1;
-  dataRow.strokeAlign = 'INSIDE';
-  
-  // Если это последняя строка, добавляем нижнюю границу
+  // Закругляем только нижние углы для последней строки
   if (isLast) {
-    // Добавляем дополнительную границу снизу через отдельный stroke
-    dataRow.strokes = [
-      {
-        type: 'SOLID',
-        color: { r: 163/255, g: 171/255, b: 187/255 },
-        opacity: 0.12
-      }
-    ];
+    dataRow.topLeftRadius = 0;
+    dataRow.topRightRadius = 0;
+    dataRow.bottomLeftRadius = 15;
+    dataRow.bottomRightRadius = 15;
+  } else {
+    // Средние строки без закруглений
+    dataRow.cornerRadius = 0;
   }
   
   // Design Token ячейка
   console.log('Creating design token cell...');
-  const designTokenCell = await createDataCell(variableData.name, 480, 'design-token');
+  const designTokenCell = await createDataCell(formatVariableName(variableData.name), 480, 'design-token');
   dataRow.appendChild(designTokenCell);
   console.log('Design token cell created');
   
@@ -782,17 +811,12 @@ async function createDataCell(text: string, width: number, type: 'design-token' 
   cell.paddingBottom = 12;
   cell.itemSpacing = 12;
   
-  // Стили ячейки
-  cell.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }];
+  // Настраиваем выравнивание контента по центру вертикально
+  cell.primaryAxisAlignItems = 'MIN'; // Выравнивание по левому краю (для горизонтального layout)
+  cell.counterAxisAlignItems = 'CENTER'; // Центрирование по вертикали
   
-  // Добавляем правую границу
-  cell.strokes = [{
-    type: 'SOLID',
-    color: { r: 163/255, g: 171/255, b: 187/255 },
-    opacity: 0.12
-  }];
-  cell.strokeWeight = 1;
-  cell.strokeAlign = 'INSIDE';
+  // Простые стили ячейки - только прозрачный фон, без границ
+  cell.fills = [];
   
   // Создаем текст
   const textNode = figma.createText();
@@ -846,19 +870,15 @@ async function createValueCell(value: string | number | boolean | { r: number; g
   cell.paddingTop = 12;
   cell.paddingBottom = 12;
   cell.itemSpacing = 12;
+  
+  // Настраиваем выравнивание контента по центру вертикально
+  cell.primaryAxisAlignItems = 'MIN'; // Выравнивание по левому краю (для горизонтального layout)
+  cell.counterAxisAlignItems = 'CENTER'; // Центрирование по вертикали
+  
   console.log('Value cell frame setup completed');
   
-  // Стили ячейки
-  cell.fills = [{ type: 'SOLID', color: { r: 20/255, g: 20/255, b: 21/255 } }];
-  
-  // Добавляем правую границу
-  cell.strokes = [{
-    type: 'SOLID',
-    color: { r: 163/255, g: 171/255, b: 187/255 },
-    opacity: 0.12
-  }];
-  cell.strokeWeight = 1;
-  cell.strokeAlign = 'INSIDE';
+  // Простые стили ячейки - только прозрачный фон, без границ
+  cell.fills = [];
   
   // Для цветовых переменных добавляем цветной кружок
   console.log('🎨 === COLOR CIRCLE CREATION LOGIC ===');
@@ -936,8 +956,14 @@ async function createValueCell(value: string | number | boolean | { r: number; g
   // Форматируем значение в зависимости от типа
   console.log('Formatting value. Type:', typeof value, 'Variable type:', type);
   if (typeof value === 'string') {
-    // Для строковых значений (включая alias цветов) показываем как есть
-    displayValue = value;
+    // Для строковых значений проверяем, является ли это названием переменной
+    if (value.includes('/')) {
+      // Это название переменной - форматируем его
+      displayValue = formatVariableName(value);
+    } else {
+      // Обычная строка - показываем как есть
+      displayValue = value;
+    }
   } else if (typeof value === 'number') {
     displayValue = formatNumber(value);
   } else if (typeof value === 'boolean') {
