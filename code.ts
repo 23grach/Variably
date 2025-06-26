@@ -17,6 +17,8 @@ interface VariableData {
   values: { [modeId: string]: string | number | boolean | { r: number; g: number; b: number; a?: number } };
   variable: Variable;
   colorValues?: { [modeId: string]: { r: number; g: number; b: number; a?: number } | null };
+  // Добавляем информацию об алиасах для каждого режима
+  aliasVariables?: { [modeId: string]: Variable | null };
 }
 
 interface ModeInfo {
@@ -178,6 +180,7 @@ async function createVariablesTable(collectionId: string, collectionName: string
         
         const values: { [modeId: string]: string | number | boolean | { r: number; g: number; b: number; a?: number } } = {};
         const colorValues: { [modeId: string]: { r: number; g: number; b: number; a?: number } | null } = {};
+        const aliasVariables: { [modeId: string]: Variable | null } = {};
         
         // Получаем значения для каждой темы
         for (const mode of modes) {
@@ -199,6 +202,27 @@ async function createVariablesTable(collectionId: string, collectionName: string
             console.log(`🎨 Resolved color result:`, resolvedColor);
             colorValues[mode.modeId] = resolvedColor;
             
+            // Проверяем, является ли это алиасом и сохраняем ссылку на переменную-алиас
+            if (typeof rawValue === 'object' && rawValue !== null && 'type' in rawValue && rawValue.type === 'VARIABLE_ALIAS' && 'id' in rawValue) {
+              console.log(`🔗 Variable ${variable.name}[${mode.name}] is an alias, getting referenced variable`);
+              try {
+                const referencedVariable = await figma.variables.getVariableByIdAsync(rawValue.id as string);
+                if (referencedVariable) {
+                  console.log(`🔗 Found alias target: ${referencedVariable.name}`);
+                  aliasVariables[mode.modeId] = referencedVariable;
+                } else {
+                  console.log(`🔗 Alias target not found for ${variable.name}[${mode.name}]`);
+                  aliasVariables[mode.modeId] = null;
+                }
+              } catch (error) {
+                console.error(`🔗 Error getting alias target for ${variable.name}[${mode.name}]:`, error);
+                aliasVariables[mode.modeId] = null;
+              }
+            } else {
+              // Не алиас - используем саму переменную
+              aliasVariables[mode.modeId] = variable;
+            }
+            
             if (resolvedColor) {
               console.log(`✅ Color resolved successfully for ${variable.name}[${mode.name}]`);
             } else {
@@ -215,7 +239,8 @@ async function createVariablesTable(collectionId: string, collectionName: string
           variableType: variable.resolvedType,
           values,
           variable,
-          colorValues: variable.resolvedType === 'COLOR' ? colorValues : undefined
+          colorValues: variable.resolvedType === 'COLOR' ? colorValues : undefined,
+          aliasVariables: variable.resolvedType === 'COLOR' ? aliasVariables : undefined
         };
         
         console.log('=== VARIABLE PROCESSING RESULT ===');
@@ -769,6 +794,7 @@ async function createDataRow(variableData: VariableData, modes: ModeInfo[], isLa
     const mode = modes[i];
     const value = variableData.values[mode.modeId];
     const colorValue = variableData.colorValues?.[mode.modeId];
+    const aliasVariable = variableData.aliasVariables?.[mode.modeId];
     
     console.log(`📊 --- Creating value cell ${i + 1}/${modes.length} for mode ${mode.name} ---`);
     console.log(`📊 Variable: ${variableData.name} (type: ${variableData.variableType})`);
@@ -777,10 +803,11 @@ async function createDataRow(variableData: VariableData, modes: ModeInfo[], isLa
     console.log(`📊 Display value type:`, typeof value);
     console.log(`📊 Color value:`, colorValue);
     console.log(`📊 Color value type:`, typeof colorValue);
+    console.log(`📊 Alias variable:`, aliasVariable?.name);
     console.log(`📊 colorValues[${mode.modeId}]:`, variableData.colorValues?.[mode.modeId]);
     
     try {
-      const valueCell = await createValueCell(value, variableData.variableType, 560, colorValue);
+      const valueCell = await createValueCell(value, variableData.variableType, 560, colorValue, aliasVariable);
       dataRow.appendChild(valueCell);
       console.log(`📊 ✅ Value cell ${i + 1} created successfully`);
     } catch (error) {
@@ -857,7 +884,7 @@ async function createDataCell(text: string, width: number, type: 'design-token' 
 /**
  * Создает ячейку значения с поддержкой разных типов переменных
  */
-async function createValueCell(value: string | number | boolean | { r: number; g: number; b: number; a?: number }, type: VariableResolvedDataType, width: number, colorValue?: { r: number; g: number; b: number; a?: number } | null): Promise<FrameNode> {
+async function createValueCell(value: string | number | boolean | { r: number; g: number; b: number; a?: number }, type: VariableResolvedDataType, width: number, colorValue?: { r: number; g: number; b: number; a?: number } | null, aliasVariable?: Variable | null): Promise<FrameNode> {
   console.log('createValueCell called with:', { value, type, width });
   const cell = figma.createFrame();
   cell.name = `Value Cell`;
@@ -921,18 +948,44 @@ async function createValueCell(value: string | number | boolean | { r: number; g
   
   if (colorForCircle) {
     console.log('🎨 ✅ Creating color circle with color:', colorForCircle);
+    console.log('🎨 Alias variable:', aliasVariable?.name);
     const colorCircle = figma.createEllipse();
     colorCircle.resize(20, 20);
     
-    // Используем opacity из цвета, если он есть
-    const opacity = colorForCircle.a !== undefined ? colorForCircle.a : 1;
-    console.log('🎨 Circle opacity:', opacity);
+    // Проверяем, есть ли у нас алиас переменная для применения
+    if (aliasVariable && type === 'COLOR') {
+      console.log('🎨 🔗 Applying variable alias to circle fill:', aliasVariable.name);
+      try {
+        // Создаем начальный SOLID fill
+        const solidFill = { 
+          type: 'SOLID' as const, 
+          color: { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
+          opacity: colorForCircle.a !== undefined ? colorForCircle.a : 1
+        };
+        
+        // Применяем алиас переменной к fill
+        const aliasedFill = figma.variables.setBoundVariableForPaint(solidFill, 'color', aliasVariable);
+        colorCircle.fills = [aliasedFill];
+        console.log('🎨 ✅ Variable alias applied successfully to circle');
+      } catch (error) {
+        console.error('🎨 ❌ Error applying variable alias to circle:', error);
+        // Fallback на обычный цвет
+        colorCircle.fills = [{ 
+          type: 'SOLID', 
+          color: { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
+          opacity: colorForCircle.a !== undefined ? colorForCircle.a : 1
+        }];
+      }
+    } else {
+      console.log('🎨 ⚪ No alias variable available, using direct color');
+      // Используем обычный цвет если нет алиаса
+      colorCircle.fills = [{ 
+        type: 'SOLID', 
+        color: { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
+        opacity: colorForCircle.a !== undefined ? colorForCircle.a : 1
+      }];
+    }
     
-    colorCircle.fills = [{ 
-      type: 'SOLID', 
-      color: { r: colorForCircle.r, g: colorForCircle.g, b: colorForCircle.b },
-      opacity: opacity
-    }];
     colorCircle.strokes = [{
       type: 'SOLID',
       color: { r: 179/255, g: 182/255, b: 189/255 },
