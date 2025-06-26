@@ -388,6 +388,23 @@
       transform: rotate(45deg);
     }
     
+    .checkbox-input:indeterminate {
+      border-color: var(--color-accent);
+      background: var(--color-accent);
+    }
+    
+    .checkbox-input:indeterminate::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 2px;
+      background: white;
+      border-radius: 1px;
+      transform: translate(-50%, -50%);
+    }
+    
     .checkbox-input:focus {
       outline: none;
       box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
@@ -815,20 +832,36 @@
         checkbox.value = group.prefix;
         checkbox.onchange = function() {
           hideError('groups-error');
+          
           if (this.checked) {
-            selectedGroups.push({
-              prefix: group.prefix,
-              count: group.count
-            });
+            // Add to selection if not already present
+            if (!selectedGroups.find(g => g.prefix === group.prefix)) {
+              selectedGroups.push({
+                prefix: group.prefix,
+                count: group.count
+              });
+            }
           } else {
+            // Remove from selection
             selectedGroups = selectedGroups.filter(g => g.prefix !== group.prefix);
           }
           
-          // Update "Select All" checkbox
+          // Update "Select All" checkbox state
           const selectAllCb = document.getElementById('select-all-groups');
           const allGroupCbs = container.querySelectorAll('input[type="checkbox"]');
           const checkedGroupCbs = container.querySelectorAll('input[type="checkbox"]:checked');
-          selectAllCb.checked = allGroupCbs.length === checkedGroupCbs.length;
+          
+          // Set indeterminate state for partial selection
+          if (checkedGroupCbs.length === 0) {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = false;
+          } else if (checkedGroupCbs.length === allGroupCbs.length) {
+            selectAllCb.checked = true;
+            selectAllCb.indeterminate = false;
+          } else {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = true;
+          }
           
           updateCreateButton();
         };
@@ -845,12 +878,42 @@
       
       // Setup "Select All" functionality
       const selectAllCheckbox = document.getElementById('select-all-groups');
+      
+      // Reset "Select All" state
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = false;
+      
       selectAllCheckbox.onchange = function() {
+        // When indeterminate, treat as selecting all
+        const shouldCheckAll = this.indeterminate || this.checked;
+        
+        // Clear indeterminate state
+        this.indeterminate = false;
+        this.checked = shouldCheckAll;
+        
         const groupCheckboxes = container.querySelectorAll('input[type="checkbox"]');
+        
+        // Clear current selection
+        selectedGroups = [];
+        
         groupCheckboxes.forEach(cb => {
-          cb.checked = this.checked;
-          cb.onchange();
+          cb.checked = shouldCheckAll;
+          
+          // If checked, add to selection
+          if (shouldCheckAll) {
+            const groupPrefix = cb.value;
+            const group = availableGroups.find(g => g.prefix === groupPrefix);
+            if (group) {
+              selectedGroups.push({
+                prefix: group.prefix,
+                count: group.count
+              });
+            }
+          }
         });
+        
+        hideError('groups-error');
+        updateCreateButton();
       };
     }
 
