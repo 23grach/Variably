@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 12px;
+      margin: 0;
+      padding: 16px;
+      background: #2c2c2c;
+      color: #fff;
+    }
+    
+    .container {
+      width: 300px;
+    }
+    
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #fff;
+      font-size: 12px;
+    }
+    
+    .modes-container {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #1e1e1e;
+      padding: 8px;
+    }
+    
+    .mode-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 4px;
+    }
+    
+    .mode-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .mode-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .mode-item label {
+      margin: 0;
+      font-weight: normal;
+      cursor: pointer;
+      flex: 1;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    
+    .primary {
+      background: #0066ff;
+      color: #fff;
+    }
+    
+    .primary:hover {
+      background: #0052cc;
+    }
+    
+    .primary:disabled {
+      background: #333;
+      cursor: not-allowed;
+    }
+    
+    .secondary {
+      background: #333;
+      color: #fff;
+    }
+    
+    .secondary:hover {
+      background: #444;
+    }
+    
+    .loading {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+    }
+    
+    .error {
+      color: #ff6b6b;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Variables Sheet Generator</h2>
+    
+    <div id="loading" class="loading">
+      Loading collections...
+    </div>
+    
+    <div id="form" style="display: none;">
+      <div class="form-group">
+        <label for="collection-select">Select Collection:</label>
+        <select id="collection-select">
+          <option value="">Choose a collection...</option>
+        </select>
+        <div id="collection-error" class="error" style="display: none;"></div>
+      </div>
+      
+      <div class="form-group" id="modes-group" style="display: none;">
+        <label>Select Modes (Themes):</label>
+        <div class="modes-container" id="modes-container">
+          <!-- Modes will be populated here -->
+        </div>
+        <div id="modes-error" class="error" style="display: none;"></div>
+      </div>
+      
+      <div class="form-group" id="groups-group" style="display: none;">
+        <label>Select Variable Groups:</label>
+        <div class="modes-container" id="groups-container">
+          <!-- Groups will be populated here -->
+        </div>
+        <div class="groups-helper" style="font-size: 11px; color: #999; margin-top: 4px;">
+          Groups are based on variable name prefixes (e.g., "color/", "spacing/")
+        </div>
+        <div id="groups-error" class="error" style="display: none;"></div>
+      </div>
+      
+      <div class="buttons">
+        <button id="cancel" class="secondary">Cancel</button>
+        <button id="create" class="primary" disabled>Create Table</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let collections = [];
+    let selectedCollection = null;
+    let selectedModes = [];
+    let availableGroups = [];
+    let selectedGroups = [];
+
+    // Initialize
+    window.onload = function() {
+      loadCollections();
+    };
+
+    function loadCollections() {
+      parent.postMessage({ 
+        pluginMessage: { type: 'load-collections' } 
+      }, '*');
+    }
+
+    function showError(elementId, message) {
+      const errorEl = document.getElementById(elementId);
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+    }
+
+    function hideError(elementId) {
+      const errorEl = document.getElementById(elementId);
+      errorEl.style.display = 'none';
+    }
+
+    function updateCreateButton() {
+      const createBtn = document.getElementById('create');
+      const hasCollection = selectedCollection !== null;
+      const hasModes = selectedModes.length > 0;
+      const hasGroups = selectedGroups.length > 0;
+      
+      createBtn.disabled = !hasCollection || !hasModes || !hasGroups;
+    }
+
+    // Collection selection
+    document.getElementById('collection-select').onchange = function(e) {
+      hideError('collection-error');
+      
+      if (e.target.value === '') {
+        selectedCollection = null;
+        document.getElementById('modes-group').style.display = 'none';
+        document.getElementById('groups-group').style.display = 'none';
+        selectedModes = [];
+        selectedGroups = [];
+        availableGroups = [];
+        updateCreateButton();
+        return;
+      }
+
+      selectedCollection = collections.find(c => c.id === e.target.value);
+      if (selectedCollection) {
+        populateModes(selectedCollection.modes);
+        document.getElementById('modes-group').style.display = 'block';
+        
+        // Load groups for this collection
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'load-groups',
+            collectionId: selectedCollection.id
+          } 
+        }, '*');
+      }
+      updateCreateButton();
+    };
+
+    function populateModes(modes) {
+      const container = document.getElementById('modes-container');
+      container.innerHTML = '';
+      selectedModes = [];
+
+      modes.forEach(mode => {
+        const modeItem = document.createElement('div');
+        modeItem.className = 'mode-item';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `mode-${mode.modeId}`;
+        checkbox.value = mode.modeId;
+        checkbox.onchange = function() {
+          hideError('modes-error');
+          if (this.checked) {
+            selectedModes.push({
+              modeId: mode.modeId,
+              name: mode.name
+            });
+          } else {
+            selectedModes = selectedModes.filter(m => m.modeId !== mode.modeId);
+          }
+          updateCreateButton();
+        };
+        
+        const label = document.createElement('label');
+        label.htmlFor = `mode-${mode.modeId}`;
+        label.textContent = mode.name;
+        
+        modeItem.appendChild(checkbox);
+        modeItem.appendChild(label);
+        container.appendChild(modeItem);
+      });
+    }
+
+    function populateGroups(groups) {
+      const container = document.getElementById('groups-container');
+      container.innerHTML = '';
+      selectedGroups = [];
+      availableGroups = groups;
+
+      // Add "Select All" option
+      const selectAllItem = document.createElement('div');
+      selectAllItem.className = 'mode-item';
+      selectAllItem.style.borderBottom = '1px solid #333';
+      selectAllItem.style.marginBottom = '8px';
+      selectAllItem.style.paddingBottom = '8px';
+      
+      const selectAllCheckbox = document.createElement('input');
+      selectAllCheckbox.type = 'checkbox';
+      selectAllCheckbox.id = 'select-all-groups';
+      selectAllCheckbox.onchange = function() {
+        const groupCheckboxes = container.querySelectorAll('input[type="checkbox"]:not(#select-all-groups)');
+        groupCheckboxes.forEach(cb => {
+          cb.checked = this.checked;
+          cb.onchange();
+        });
+      };
+      
+      const selectAllLabel = document.createElement('label');
+      selectAllLabel.htmlFor = 'select-all-groups';
+      selectAllLabel.textContent = 'Select All Groups';
+      selectAllLabel.style.fontWeight = '500';
+      
+      selectAllItem.appendChild(selectAllCheckbox);
+      selectAllItem.appendChild(selectAllLabel);
+      container.appendChild(selectAllItem);
+
+      // Add individual groups
+      groups.forEach(group => {
+        const groupItem = document.createElement('div');
+        groupItem.className = 'mode-item';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `group-${group.prefix}`;
+        checkbox.value = group.prefix;
+        checkbox.onchange = function() {
+          hideError('groups-error');
+          if (this.checked) {
+            selectedGroups.push({
+              prefix: group.prefix,
+              count: group.count
+            });
+          } else {
+            selectedGroups = selectedGroups.filter(g => g.prefix !== group.prefix);
+          }
+          
+          // Update "Select All" checkbox
+          const selectAllCb = document.getElementById('select-all-groups');
+          const allGroupCbs = container.querySelectorAll('input[type="checkbox"]:not(#select-all-groups)');
+          const checkedGroupCbs = container.querySelectorAll('input[type="checkbox"]:not(#select-all-groups):checked');
+          selectAllCb.checked = allGroupCbs.length === checkedGroupCbs.length;
+          
+          updateCreateButton();
+        };
+        
+        const label = document.createElement('label');
+        label.htmlFor = `group-${group.prefix}`;
+        label.textContent = `${group.prefix}/ (${group.count} variables)`;
+        
+        groupItem.appendChild(checkbox);
+        groupItem.appendChild(label);
+        container.appendChild(groupItem);
+      });
+    }
+
+    // Button handlers
+    document.getElementById('cancel').onclick = function() {
+      parent.postMessage({ 
+        pluginMessage: { type: 'cancel' } 
+      }, '*');
+    };
+
+    document.getElementById('create').onclick = function() {
+      if (!selectedCollection || selectedModes.length === 0 || selectedGroups.length === 0) {
+        if (!selectedCollection) {
+          showError('collection-error', 'Please select a collection');
+        }
+        if (selectedModes.length === 0) {
+          showError('modes-error', 'Please select at least one mode');
+        }
+        if (selectedGroups.length === 0) {
+          showError('groups-error', 'Please select at least one group');
+        }
+        return;
+      }
+
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'create-table',
+          collectionId: selectedCollection.id,
+          collectionName: selectedCollection.name,
+          modes: selectedModes,
+          groups: selectedGroups
+        } 
+      }, '*');
+    };
+
+    // Handle messages from plugin
+    window.onmessage = function(event) {
+      const msg = event.data.pluginMessage;
+      
+      if (msg.type === 'collections-loaded') {
+        collections = msg.collections;
+        
+        const select = document.getElementById('collection-select');
+        select.innerHTML = '<option value="">Choose a collection...</option>';
+        
+        collections.forEach(collection => {
+          const option = document.createElement('option');
+          option.value = collection.id;
+          option.textContent = collection.name;
+          select.appendChild(option);
+        });
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('form').style.display = 'block';
+      }
+      
+      if (msg.type === 'groups-loaded') {
+        availableGroups = msg.groups;
+        populateGroups(msg.groups);
+        document.getElementById('groups-group').style.display = 'block';
+        updateCreateButton();
+      }
+      
+      if (msg.type === 'error') {
+        document.getElementById('loading').innerHTML = 
+          `<div style="color: #ff6b6b;">Error: ${msg.message}</div>`;
+      }
+    };
+  </script>
+</body>
+</html>
