@@ -541,7 +541,7 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   tableFrame.layoutMode = 'HORIZONTAL';
   tableFrame.primaryAxisSizingMode = 'AUTO';
   tableFrame.counterAxisSizingMode = 'AUTO';
-  tableFrame.itemSpacing = 32; // 32px между основными секциями
+  tableFrame.itemSpacing = 24; // 32px между основными секциями
   
   // Стили для таблицы
   tableFrame.cornerRadius = 0;
@@ -717,14 +717,15 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
     console.log(`Theme group "${mode.name}" completed and added to table`);
   }
   
-  // Размещаем таблицу по центру страницы
+  // Размещаем таблицу в текущей видимой области (где пользователь приближен)
   figma.currentPage.appendChild(tableFrame);
   
-  // Центрируем таблицу
+  // Размещаем таблицу в области просмотра пользователя
   const bounds = tableFrame.absoluteBoundingBox;
   if (bounds) {
-    tableFrame.x = figma.viewport.center.x - bounds.width / 2;
-    tableFrame.y = figma.viewport.center.y - bounds.height / 2;
+    // Размещаем таблицу в левом верхнем углу текущей видимой области с небольшим отступом
+    tableFrame.x = figma.viewport.center.x - figma.viewport.bounds.width / 2 + 50;
+    tableFrame.y = figma.viewport.center.y - figma.viewport.bounds.height / 2 + 50;
   }
   
   // Выбираем таблицу
