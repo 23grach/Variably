@@ -32,7 +32,7 @@ const TABLE_CONFIG = {
   },
   radius: {
     group: 16,
-    header: 15
+    header: 16
   }
 } as const;
 
@@ -117,7 +117,7 @@ function createGroupStyles(): GroupStyleConfig {
   return {
     cornerRadius: TABLE_CONFIG.radius.group,
     strokeColor: TABLE_COLORS.group.stroke,
-    strokeOpacity: 0.3,
+    strokeOpacity: 0.12,
     strokeWeight: 1,
     fillColor: TABLE_COLORS.group.background,
     fillOpacity: 0.03
