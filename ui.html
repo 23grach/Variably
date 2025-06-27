@@ -139,6 +139,88 @@
       font-weight: var(--font-weight-medium);
     }
     
+    /* Skeleton Loading */
+    .skeleton {
+      background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-tertiary) 50%, var(--color-bg-secondary) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+      border-radius: var(--radius-sm);
+    }
+    
+    @keyframes skeleton-loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    
+    .skeleton-text {
+      height: 14px;
+      margin-bottom: var(--space-sm);
+    }
+    
+    .skeleton-text.large {
+      height: 20px;
+    }
+    
+    .skeleton-text.small {
+      height: 12px;
+      width: 60%;
+    }
+    
+    /* Inline Loading */
+    .inline-loading {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
+    
+    .inline-loading-spinner {
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--color-border);
+      border-top: 1px solid var(--color-accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-3xl);
+      gap: var(--space-lg);
+      text-align: center;
+      color: var(--color-text-secondary);
+    }
+    
+    .empty-state-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--color-bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      opacity: 0.7;
+    }
+    
+    .empty-state-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+    
+    .empty-state-description {
+      font-size: var(--font-size-sm);
+      margin: 0;
+      max-width: 300px;
+    }
+    
     /* Form Sections */
     .form-section {
       margin-bottom: var(--space-3xl);
@@ -199,16 +281,16 @@
       box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
     }
     
-    .dropdown-arrow {
-      width: 16px;
-      height: 16px;
-      transition: transform var(--transition-fast);
-      color: var(--color-text-secondary);
-    }
-    
-    .dropdown-trigger.open .dropdown-arrow {
-      transform: rotate(180deg);
-    }
+          .dropdown-arrow {
+        width: 16px;
+        height: 16px;
+        transition: transform var(--transition-fast);
+        color: var(--color-text-secondary);
+      }
+      
+      .dropdown-trigger.open .dropdown-arrow {
+        transform: rotate(180deg);
+      }
     
     .dropdown-menu {
       position: absolute;
@@ -254,6 +336,12 @@
       background: var(--color-bg-secondary);
       color: var(--color-accent);
       font-weight: var(--font-weight-medium);
+    }
+    
+    .dropdown-item.focused {
+      background: var(--color-bg-tertiary);
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
     }
     
     /* Checkbox Groups */
@@ -482,8 +570,57 @@
       to { opacity: 1; transform: translateY(0); }
     }
     
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
     .form-section {
       animation: fadeIn var(--transition-base) ease-out;
+    }
+    
+    .checkbox-item {
+      transition: all var(--transition-fast);
+    }
+    
+    .checkbox-item:hover {
+      transform: translateX(2px);
+    }
+    
+    /* Success State */
+    .success-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-lg);
+      padding: var(--space-3xl);
+      text-align: center;
+      animation: slideUp var(--transition-base) ease-out;
+    }
+    
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--color-success);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 32px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .success-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
     }
     
     /* Status Indicator */
@@ -560,7 +697,13 @@
         </div>
         
         <div class="form-section hidden" id="groups-section">
-          <h3 class="section-title">Variable Groups</h3>
+          <h3 class="section-title">
+            Variable Groups
+            <div id="groups-loading" class="inline-loading" style="display: none;">
+              <div class="inline-loading-spinner"></div>
+              <span>Loading groups...</span>
+            </div>
+          </h3>
           <div class="checkbox-group">
             <div class="checkbox-group-header">
               <input type="checkbox" id="select-all-groups" class="checkbox-input">
@@ -608,6 +751,7 @@
     function setupDropdown() {
       const trigger = document.getElementById('collection-trigger');
       const menu = document.getElementById('collection-menu');
+      let focusedItemIndex = -1;
       
       trigger.addEventListener('click', function(e) {
         e.preventDefault();
@@ -619,6 +763,16 @@
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           toggleDropdown();
+        } else if (e.key === 'ArrowDown' && dropdownOpen) {
+          e.preventDefault();
+          focusNextItem();
+        } else if (e.key === 'ArrowUp' && dropdownOpen) {
+          e.preventDefault();
+          focusPreviousItem();
+        } else if (e.key === 'Escape' && dropdownOpen) {
+          e.preventDefault();
+          closeDropdown();
+          trigger.focus();
         }
       });
       
@@ -628,6 +782,39 @@
           closeDropdown();
         }
       });
+      
+      function focusNextItem() {
+        const items = menu.querySelectorAll('.dropdown-item');
+        focusedItemIndex = Math.min(focusedItemIndex + 1, items.length - 1);
+        updateFocusedItem(items);
+      }
+      
+      function focusPreviousItem() {
+        const items = menu.querySelectorAll('.dropdown-item');
+        focusedItemIndex = Math.max(focusedItemIndex - 1, 0);
+        updateFocusedItem(items);
+      }
+      
+      function updateFocusedItem(items) {
+        items.forEach((item, index) => {
+          if (index === focusedItemIndex) {
+            item.classList.add('focused');
+            item.scrollIntoView({ block: 'nearest' });
+          } else {
+            item.classList.remove('focused');
+          }
+        });
+      }
+      
+      function resetFocus() {
+        focusedItemIndex = -1;
+        menu.querySelectorAll('.dropdown-item').forEach(item => {
+          item.classList.remove('focused');
+        });
+      }
+      
+      // Expose functions for use in other parts
+      window.resetDropdownFocus = resetFocus;
     }
     
     function toggleDropdown() {
@@ -720,6 +907,7 @@
         showSection('modes-section');
         
         // Load groups for this collection
+        showGroupsLoading();
         parent.postMessage({ 
           pluginMessage: { 
             type: 'load-groups',
@@ -824,15 +1012,44 @@
       });
     }
 
+    function showGroupsLoading() {
+      const loading = document.getElementById('groups-loading');
+      loading.style.display = 'flex';
+    }
+    
+    function hideGroupsLoading() {
+      const loading = document.getElementById('groups-loading');
+      loading.style.display = 'none';
+    }
+    
+    function showEmptyGroupsState() {
+      const container = document.getElementById('groups-container');
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📂</div>
+          <h4 class="empty-state-title">No variable groups found</h4>
+          <p class="empty-state-description">This collection doesn't contain any variable groups to display.</p>
+        </div>
+      `;
+    }
+
     function populateGroups(groups) {
       const container = document.getElementById('groups-container');
       container.innerHTML = '';
       selectedGroups = [];
       availableGroups = groups;
+      
+      hideGroupsLoading();
+      
+      if (!groups || groups.length === 0) {
+        showEmptyGroupsState();
+        return;
+      }
 
       groups.forEach((group, index) => {
         const groupItem = document.createElement('div');
         groupItem.className = 'checkbox-item';
+        groupItem.style.animationDelay = `${index * 30}ms`;
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -847,7 +1064,7 @@
         
         // Add click handler to the entire row
         groupItem.addEventListener('click', function(e) {
-          if (e.target === checkbox || e.target === label) return; // Let normal handling occur
+          if (e.target === checkbox || e.target === label) return;
           checkbox.click();
         });
         
@@ -865,22 +1082,7 @@
             selectedGroups = selectedGroups.filter(g => g.prefix !== group.prefix);
           }
           
-          // Update "Select All" checkbox state
-          const selectAllCb = document.getElementById('select-all-groups');
-          const allGroupCbs = container.querySelectorAll('input[type="checkbox"]');
-          const checkedGroupCbs = container.querySelectorAll('input[type="checkbox"]:checked');
-          
-          if (checkedGroupCbs.length === 0) {
-            selectAllCb.checked = false;
-            selectAllCb.indeterminate = false;
-          } else if (checkedGroupCbs.length === allGroupCbs.length) {
-            selectAllCb.checked = true;
-            selectAllCb.indeterminate = false;
-          } else {
-            selectAllCb.checked = false;
-            selectAllCb.indeterminate = true;
-          }
-          
+          updateSelectAllGroupsState();
           updateCreateButton();
         });
         
@@ -889,12 +1091,38 @@
         container.appendChild(groupItem);
       });
       
-      // Setup "Select All" functionality
+      setupSelectAllGroups();
+    }
+    
+    function updateSelectAllGroupsState() {
+      const container = document.getElementById('groups-container');
+      const selectAllCb = document.getElementById('select-all-groups');
+      const allGroupCbs = container.querySelectorAll('input[type="checkbox"]');
+      const checkedGroupCbs = container.querySelectorAll('input[type="checkbox"]:checked');
+      
+      if (checkedGroupCbs.length === 0) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+      } else if (checkedGroupCbs.length === allGroupCbs.length) {
+        selectAllCb.checked = true;
+        selectAllCb.indeterminate = false;
+      } else {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = true;
+      }
+    }
+    
+    function setupSelectAllGroups() {
       const selectAllCheckbox = document.getElementById('select-all-groups');
       selectAllCheckbox.checked = false;
       selectAllCheckbox.indeterminate = false;
       
-      selectAllCheckbox.addEventListener('change', function() {
+      // Remove existing listeners
+      const newCheckbox = selectAllCheckbox.cloneNode(true);
+      selectAllCheckbox.parentNode.replaceChild(newCheckbox, selectAllCheckbox);
+      
+      newCheckbox.addEventListener('change', function() {
+        const container = document.getElementById('groups-container');
         const shouldCheckAll = this.indeterminate || this.checked;
         this.indeterminate = false;
         this.checked = shouldCheckAll;
@@ -945,7 +1173,14 @@
 
       const button = this;
       const originalContent = button.innerHTML;
-      button.innerHTML = '<span>Creating...</span>';
+      
+      // Add loading state with spinner
+      button.innerHTML = `
+        <div class="inline-loading">
+          <div class="inline-loading-spinner"></div>
+          <span>Creating table...</span>
+        </div>
+      `;
       button.disabled = true;
 
       parent.postMessage({ 
@@ -958,11 +1193,14 @@
         } 
       }, '*');
 
+      // Auto-reset after timeout (fallback)
       setTimeout(() => {
-        button.innerHTML = originalContent;
-        button.disabled = false;
-        updateCreateButton();
-      }, 5000);
+        if (button.disabled) {
+          button.innerHTML = originalContent;
+          button.disabled = false;
+          updateCreateButton();
+        }
+      }, 10000);
     });
 
     // Handle messages from plugin
@@ -982,8 +1220,18 @@
           item.addEventListener('click', function() {
             selectCollection(collection);
           });
+          item.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              selectCollection(collection);
+            }
+          });
           menu.appendChild(item);
         });
+        
+        if (window.resetDropdownFocus) {
+          window.resetDropdownFocus();
+        }
         
         document.getElementById('loading').style.display = 'none';
         document.getElementById('form').style.display = 'block';
