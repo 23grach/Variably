@@ -1,20 +1,44 @@
+/**
+ * Variables Sheet - Плагин Figma для создания таблиц переменных
+ * 
+ * Этот плагин автоматически генерирует красивые таблицы из коллекций переменных Figma.
+ * Поддерживает все типы переменных, множественные режимы/темы, группировку по префиксам
+ * и интеллектуальное форматирование значений.
+ * 
+ * Основные возможности:
+ * - Загрузка и фильтрация коллекций переменных
+ * - Группировка переменных по префиксам
+ * - Поддержка цветовых индикаторов для COLOR переменных
+ * - Обработка алиасов и ссылок между переменными
+ * - Генерация CSS custom properties
+ * - Адаптивное форматирование для разных типов данных
+ * 
+ * Архитектура:
+ * - Строгая типизация TypeScript
+ * - Кэширование для оптимизации производительности
+ * - Модульная структура с разделением ответственности
+ * - Централизованная обработка ошибок
+ * - Мемоизация часто используемых операций
+ */
+
 figma.showUI(__html__, { width: 400, height: 700 });
 
-// Debug: плагин запущен
-console.log('Variables Sheet plugin started successfully');
-
 /**
- * Константы для избежания магических чисел
+ * Константы приложения для избежания магических чисел
+ * Содержит настройки размеров, анимации и валидации
  */
-const CONSTANTS = {
+const APP_CONSTANTS = {
+  /** Размеры текста */
   TEXT_SIZE: {
     HEADER: 16,
     BODY: 14,
     SMALL: 12
   },
+  /** Настройки анимации */
   ANIMATION: {
     DURATION: 200
   },
+  /** Параметры валидации */
   VALIDATION: {
     MIN_WIDTH: 100,
     MAX_VARIABLES: 1000
@@ -47,10 +71,10 @@ interface StrictTableConfig {
 }
 
 /**
- * Утилитарная функция для валидации входных данных
- * @param value - Значение для проверки
- * @param type - Ожидаемый тип
- * @returns boolean Результат валидации
+ * Валидирует входные данные на соответствие ожидаемому типу
+ * @param value Значение для проверки
+ * @param type Ожидаемый тип данных
+ * @returns Результат валидации
  */
 function validateInput(value: unknown, type: 'string' | 'number' | 'boolean'): boolean {
   switch (type) {
@@ -66,16 +90,17 @@ function validateInput(value: unknown, type: 'string' | 'number' | 'boolean'): b
 }
 
 /**
- * Проверяет валидность цвета
- * @param color - Объект цвета для проверки
- * @returns boolean Результат валидации
+ * Проверяет валидность объекта цвета RGB(A)
+ * Валидирует структуру и диапазоны значений компонентов цвета
+ * @param color Объект для проверки на соответствие формату цвета
+ * @returns Результат валидации с type guard
  */
 function _isValidColor(color: unknown): color is { r: number; g: number; b: number; a?: number } {
   if (typeof color !== 'object' || color === null) return false;
   
   const c = color as Record<string, unknown>;
   
-  // Проверяем наличие и валидность r, g, b
+  // Проверяем наличие и валидность обязательных компонентов RGB
   if (!validateInput(c.r, 'number') || !validateInput(c.g, 'number') || !validateInput(c.b, 'number')) {
     return false;
   }
@@ -84,11 +109,12 @@ function _isValidColor(color: unknown): color is { r: number; g: number; b: numb
   const g = c.g as number;
   const b = c.b as number;
   
+  // Проверяем диапазон значений RGB (0-1)
   if (r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
     return false;
   }
   
-  // Проверяем a (опционально)
+  // Проверяем альфа-канал (опционально)
   if (c.a !== undefined) {
     if (!validateInput(c.a, 'number')) {
       return false;
@@ -211,10 +237,11 @@ const fontCache = new Map<string, FontName>();
 const fillCache = new Map<string, SolidPaint>();
 
 /**
- * Создает базовый fill объект для заданного цвета с кэшированием
- * @param color - Цвет fill
- * @param opacity - Опциональная прозрачность
- * @returns Fill объект
+ * Создает заливку типа SOLID с кэшированием для оптимизации производительности
+ * Используется для применения цветов к элементам Figma
+ * @param color RGB цвет в формате {r, g, b} где значения от 0 до 1
+ * @param opacity Прозрачность от 0 до 1 (по умолчанию 1.0)
+ * @returns Объект SolidPaint для применения к элементам
  */
 function createSolidFill(color: { r: number; g: number; b: number }, opacity?: number): SolidPaint {
   const key = `${color.r}-${color.g}-${color.b}-${opacity ?? 1}`;
@@ -234,9 +261,10 @@ function createSolidFill(color: { r: number; g: number; b: number }, opacity?: n
 }
 
 /**
- * Загружает шрифт с fallback цепочкой и кэшированием
- * @param type - Тип шрифта (primary, secondary, header, fallback)
- * @returns Promise<FontName> Загруженный шрифт
+ * Загружает шрифт с системой резервных вариантов и кэшированием
+ * Пытается загрузить шрифты в порядке приоритета, возвращает первый доступный
+ * @param type Тип шрифта для загрузки
+ * @returns Промис с объектом FontName загруженного шрифта
  */
 async function loadFontWithFallback(type: 'primary' | 'secondary' | 'header' | 'fallback' = 'primary'): Promise<FontName> {
   const cacheKey = type;
@@ -268,8 +296,9 @@ async function loadFontWithFallback(type: 'primary' | 'secondary' | 'header' | '
 }
 
 /**
- * Утилитарная функция для создания стилей групп
- * @returns Конфигурация стилей для групп переменных
+ * Создает конфигурацию стилей для групп переменных
+ * Определяет внешний вид контейнеров групп в таблице
+ * @returns Объект конфигурации с настройками границ, заливки и скругления
  */
 function createGroupStyles(): GroupStyleConfig {
   return {
@@ -283,9 +312,10 @@ function createGroupStyles(): GroupStyleConfig {
 }
 
 /**
- * Применяет стили группы к фрейму
- * @param frame - Фрейм для применения стилей
- * @param styles - Конфигурация стилей
+ * Применяет визуальные стили к фрейму группы переменных
+ * Настраивает границы, заливку и скругление углов
+ * @param frame Фрейм для стилизации
+ * @param styles Конфигурация стилей для применения
  */
 function applyGroupStyles(frame: FrameNode, styles: GroupStyleConfig): void {
   frame.cornerRadius = styles.cornerRadius;
@@ -337,9 +367,10 @@ const createBaseCellMemoized = (() => {
 })();
 
 /**
- * Пакетное создание текстовых нод для оптимизации производительности
- * @param texts - Массив текстов для создания
- * @returns Promise<TextNode[]> Массив созданных текстовых нод
+ * Создает множество текстовых элементов в пакетном режиме для оптимизации
+ * Предзагружает все необходимые шрифты перед созданием элементов
+ * @param texts Массив объектов с текстом и типом шрифта
+ * @returns Промис с массивом созданных текстовых элементов
  */
 async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'primary' | 'secondary' | 'header' }>): Promise<TextNode[]> {
   // Предзагружаем все необходимые шрифты
@@ -350,15 +381,16 @@ async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'pri
     const textNode = figma.createText();
     textNode.fontName = await loadFontWithFallback(fontType);
     textNode.characters = text;
-    textNode.fontSize = CONSTANTS.TEXT_SIZE.BODY;
+    textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.BODY;
     textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
     return textNode;
   }));
 }
 
 /**
- * Обработчик сообщений от UI
- * Маршрутизирует запросы на соответствующие функции
+ * Центральный обработчик сообщений от пользовательского интерфейса
+ * Маршрутизирует команды UI на соответствующие функции плагина
+ * Обеспечивает обработку ошибок и логирование операций
  */
 figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collectionName?: string; modes?: ModeInfo[]; groups?: GroupInfo[] }) => {
   console.log('Message received:', msg.type, msg); // Debug log
@@ -405,8 +437,9 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
 };
 
 /**
- * Загружает все коллекции переменных и отправляет их в UI
- * Подсчитывает количество переменных в каждой коллекции
+ * Загружает все локальные коллекции переменных и отправляет данные в UI
+ * Подсчитывает количество переменных в каждой коллекции для отображения статистики
+ * Обрабатывает ошибки и отправляет уведомления об ошибках в интерфейс
  */
 async function loadCollections(): Promise<void> {
   try {
@@ -444,9 +477,10 @@ async function loadCollections(): Promise<void> {
 }
 
 /**
- * Загружает группы переменных для выбранной коллекции
- * Группирует переменные по префиксам (часть до первого слеша)
- * @param collectionId - ID коллекции для группировки переменных
+ * Анализирует и группирует переменные выбранной коллекции по префиксам
+ * Извлекает префиксы из имен переменных (часть до первого слеша) и подсчитывает количество
+ * Сортирует группы по алфавиту для удобства навигации
+ * @param collectionId Идентификатор коллекции для анализа
  */
 async function loadGroups(collectionId: string): Promise<void> {
   try {
@@ -488,10 +522,11 @@ async function loadGroups(collectionId: string): Promise<void> {
 }
 
 /**
- * Получает и фильтрует переменные из коллекции по выбранным группам
- * @param collectionId - ID коллекции переменных
- * @param groups - Выбранные группы переменных
- * @returns Отфильтрованный массив переменных
+ * Фильтрует переменные коллекции по выбранным пользователем группам
+ * Возвращает только переменные, принадлежащие к указанным префиксам
+ * @param collectionId Идентификатор коллекции переменных
+ * @param groups Массив выбранных групп для фильтрации
+ * @returns Промис с отфильтрованным массивом переменных
  */
 async function getFilteredVariables(collectionId: string, groups: GroupInfo[]): Promise<Variable[]> {
   const collection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
@@ -520,10 +555,12 @@ async function getFilteredVariables(collectionId: string, groups: GroupInfo[]): 
 }
 
 /**
- * Обрабатывает переменную и резолвит её значения для всех режимов
- * @param variable - Переменная Figma для обработки
- * @param modes - Массив режимов/тем
- * @returns Обработанные данные переменной
+ * Обрабатывает переменную Figma и резолвит её значения для всех режимов/тем
+ * Извлекает значения, обрабатывает алиасы и подготавливает данные для отображения
+ * Для цветовых переменных дополнительно резолвит фактические цвета и алиасы
+ * @param variable Переменная Figma для обработки
+ * @param modes Массив режимов/тем коллекции
+ * @returns Промис с полностью обработанными данными переменной
  */
 async function processVariableData(variable: Variable, modes: ModeInfo[]): Promise<VariableData> {
   const values: { [modeId: string]: string | number | boolean | { r: number; g: number; b: number; a?: number } } = {};
@@ -569,8 +606,9 @@ async function processVariableData(variable: Variable, modes: ModeInfo[]): Promi
 }
 
 /**
- * Сортирует переменные по префиксам, затем по алфавиту внутри групп 
- * @param variablesData - Массив данных переменных для сортировки
+ * Сортирует переменные иерархически: сначала по префиксам, затем по алфавиту внутри групп
+ * Обеспечивает логичную группировку и упорядочивание переменных в таблице
+ * @param variablesData Массив данных переменных для сортировки
  * @returns Отсортированный массив переменных
  */
 function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableData[] {
@@ -596,12 +634,13 @@ function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableDa
 }
 
 /**
- * Создает таблицу переменных из коллекции
- * Координирующая функция, которая управляет всем процессом создания таблицы
- * @param collectionId - ID коллекции переменных
- * @param collectionName - Название коллекции
- * @param modes - Массив режимов/тем
- * @param groups - Выбранные группы переменных
+ * Главная функция создания таблицы переменных из выбранной коллекции
+ * Координирует весь процесс: фильтрацию, обработку данных, сортировку и создание UI
+ * Обрабатывает ошибки и показывает уведомления пользователю
+ * @param collectionId Идентификатор коллекции переменных
+ * @param collectionName Название коллекции для отображения
+ * @param modes Массив режимов/тем коллекции
+ * @param groups Выбранные пользователем группы переменных
  */
 async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[]): Promise<void> {
   try {
@@ -637,17 +676,20 @@ async function createVariablesTable(collectionId: string, collectionName: string
 }
 
 /**
- * Форматирует название переменной, заменяя слэши на дефисы
- * @param variableName - Исходное название переменной
- * @returns Отформатированное название
+ * Форматирует название переменной для отображения в таблице
+ * Заменяет слэши на дефисы для улучшения читаемости
+ * @param variableName Исходное название переменной из Figma
+ * @returns Отформатированное название для отображения
  */
 function formatVariableName(variableName: string): string {
   return variableName.replace(/\//g, '-');
 }
 
 /**
- * Генерирует dev token из названия переменной в формате CSS custom property
- * @param variableName - Исходное название переменной
+ * Генерирует CSS custom property из названия переменной Figma
+ * Преобразует название в валидный формат CSS переменной с префиксом var()
+ * Очищает от недопустимых символов и приводит к lowercase
+ * @param variableName Исходное название переменной из Figma
  * @returns CSS custom property в формате var(--variable-name)
  */
 function generateDevToken(variableName: string): string {
@@ -661,8 +703,9 @@ function generateDevToken(variableName: string): string {
 }
 
 /**
- * Форматирует цвет для красивого отображения в HEX формате
- * @param color - Объект цвета с компонентами r, g, b и опциональным a
+ * Преобразует RGB(A) цвет в читаемый HEX формат для отображения
+ * Конвертирует значения 0-1 в 0-255, добавляет процент прозрачности при необходимости
+ * @param color Объект цвета с компонентами r, g, b и опциональным a
  * @returns Строка в формате HEX с процентами прозрачности при необходимости
  */
 function formatColor(color: { r: number; g: number; b: number; a?: number }): string {
@@ -683,8 +726,9 @@ function formatColor(color: { r: number; g: number; b: number; a?: number }): st
 }
 
 /**
- * Форматирует число для красивого отображения, убирая лишние нули
- * @param num - Число для форматирования
+ * Форматирует числовые значения для оптимального отображения в таблице
+ * Убирает лишние нули, округляет до разумной точности
+ * @param num Число для форматирования
  * @returns Строковое представление числа без лишних десятичных знаков
  */
 function formatNumber(num: number): string {
@@ -708,12 +752,13 @@ function formatNumber(num: number): string {
 }
 
 /**
- * Резолвит значение переменной, возвращая отображаемое значение
- * Обрабатывает алиасы, цвета и примитивные типы
- * @param variable - Переменная Figma
- * @param modeId - ID режима
- * @param value - Сырое значение переменной
- * @returns Разрешенное значение для отображения
+ * Резолвит значение переменной для отображения в таблице
+ * Обрабатывает алиасы переменных, цветовые объекты и примитивные типы
+ * Рекурсивно разрешает ссылки на другие переменные
+ * @param variable Переменная Figma для обработки
+ * @param modeId Идентификатор режима/темы
+ * @param value Сырое значение переменной из Figma API
+ * @returns Промис с разрешенным значением для отображения
  */
 async function resolveVariableValue(variable: Variable, modeId: string, value: unknown): Promise<string | number | boolean | { r: number; g: number; b: number; a?: number }> {
   if (value === undefined || value === null) {
@@ -746,11 +791,13 @@ async function resolveVariableValue(variable: Variable, modeId: string, value: u
 }
 
 /**
- * Резолвит цветовое значение переменной, включая alias (рекурсивно)
- * @param variable - Переменная Figma
- * @param modeId - ID режима
- * @param value - Сырое значение переменной
- * @returns Разрешенное цветовое значение или null если не удалось разрешить
+ * Рекурсивно резолвит цветовое значение переменной, включая алиасы
+ * Специализированная функция для работы с цветовыми переменными и их ссылками
+ * Обеспечивает fallback на доступные режимы при отсутствии значения в текущем
+ * @param variable Переменная Figma для обработки
+ * @param modeId Идентификатор режима/темы
+ * @param value Сырое значение переменной из Figma API
+ * @returns Промис с разрешенным цветовым значением или null при ошибке
  */
 async function resolveColorValue(variable: Variable, modeId: string, value: unknown): Promise<{ r: number; g: number; b: number; a?: number } | null> {
   // Проверяем на undefined и null
@@ -1151,7 +1198,7 @@ async function createDataCell(text: string, width: number, type: 'design-token' 
   // Создаем текст
   const textNodes = await createTextNodesBatch([{ text, fontType: type === 'dev-token' ? 'primary' : 'secondary' }]);
   const textNode = textNodes[0];
-  textNode.fontSize = CONSTANTS.TEXT_SIZE.HEADER;
+  textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.HEADER;
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
   
@@ -1160,11 +1207,13 @@ async function createDataCell(text: string, width: number, type: 'design-token' 
 }
 
 /**
- * Определяет цвет для отображения в цветном индикаторе
- * @param value - Значение переменной
- * @param type - Тип переменной
- * @param colorValue - Разрешенное цветовое значение
- * @returns Объект цвета или null если цвет не определен
+ * Определяет какой цвет использовать для визуального индикатора в ячейке
+ * Приоритизирует разрешенные цветовые значения над прямыми значениями
+ * Возвращает null для не-цветовых переменных
+ * @param value Значение переменной (может содержать прямой цвет)
+ * @param type Тип переменной Figma
+ * @param colorValue Разрешенное цветовое значение (приоритет)
+ * @returns Объект RGB(A) цвета или null если цвет не определен
  */
 function determineColorForIndicator(
   value: string | number | boolean | { r: number; g: number; b: number; a?: number }, 
@@ -1189,11 +1238,13 @@ function determineColorForIndicator(
 }
 
 /**
- * Создает цветной индикатор (кружок) для цветовых переменных
- * @param color - Цвет для индикатора
- * @param type - Тип переменной
- * @param aliasVariable - Переменная алиас для привязки цвета
- * @returns EllipseNode с цветным индикатором
+ * Создает круглый цветовой индикатор для отображения цветовых переменных
+ * Применяет привязку к переменной-алиасу если доступна, иначе использует статичный цвет
+ * Добавляет тонкую границу для лучшей видимости на любом фоне
+ * @param color RGB(A) цвет для заливки индикатора
+ * @param type Тип переменной Figma
+ * @param aliasVariable Переменная-алиас для привязки (если есть)
+ * @returns Элемент EllipseNode с настроенным цветовым индикатором
  */
 function createColorIndicator(
   color: { r: number; g: number; b: number; a?: number }, 
@@ -1237,9 +1288,11 @@ function createColorIndicator(
 }
 
 /**
- * Форматирует значение переменной для отображения
- * @param value - Значение переменной
- * @returns Отформатированная строка для отображения
+ * Форматирует различные типы значений переменных для читаемого отображения
+ * Обрабатывает строки, числа, булевы значения и цветовые объекты
+ * Применяет специальное форматирование для имен переменных и цветов
+ * @param value Значение переменной любого поддерживаемого типа
+ * @returns Отформатированная строка для отображения в таблице
  */
 function formatValueForDisplay(value: string | number | boolean | { r: number; g: number; b: number; a?: number }): string {
   if (typeof value === 'string') {
@@ -1264,15 +1317,16 @@ function formatValueForDisplay(value: string | number | boolean | { r: number; g
 }
 
 /**
- * Создает текстовый элемент для отображения значения
- * @param displayValue - Отформатированное значение для отображения
- * @returns TextNode с настроенным текстом
+ * Создает текстовый элемент с единообразным стилем для значений переменных
+ * Применяет основной шрифт, размер и цвет согласно дизайн-системе
+ * @param displayValue Отформатированное значение для отображения
+ * @returns Промис с настроенным текстовым элементом
  */
 async function createValueText(displayValue: string): Promise<TextNode> {
   const textNode = figma.createText();
   textNode.fontName = await loadFontWithFallback('primary');
   textNode.characters = displayValue;
-  textNode.fontSize = CONSTANTS.TEXT_SIZE.BODY;
+  textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.BODY;
   textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
@@ -1281,13 +1335,15 @@ async function createValueText(displayValue: string): Promise<TextNode> {
 }
 
 /**
- * Создает ячейку значения переменной с цветным индикатором (если применимо)
- * @param value - Значение переменной для отображения
- * @param type - Тип переменной Figma
- * @param width - Ширина ячейки
- * @param colorValue - Разрешенное цветовое значение (опционально)
- * @param aliasVariable - Переменная алиас для привязки цвета (опционально)
- * @returns FrameNode с ячейкой значения
+ * Создает комплексную ячейку для отображения значения переменной
+ * Включает цветовой индикатор для цветовых переменных и форматированный текст
+ * Использует горизонтальный layout для размещения индикатора и текста
+ * @param value Значение переменной для отображения
+ * @param type Тип переменной Figma (определяет наличие цветового индикатора)
+ * @param width Ширина ячейки в пикселях
+ * @param colorValue Разрешенное цветовое значение (для цветовых переменных)
+ * @param aliasVariable Переменная-алиас для привязки цвета (опционально)
+ * @returns Промис с настроенной ячейкой значения
  */
 async function createValueCell(
   value: string | number | boolean | { r: number; g: number; b: number; a?: number }, 
@@ -1320,10 +1376,11 @@ async function createValueCell(
 }
 
 /**
- * Создает ячейку заголовка
- * @param text - Текст заголовка
- * @param width - Ширина ячейки
- * @returns FrameNode с ячейкой заголовка
+ * Создает ячейку заголовка таблицы с единообразным стилем
+ * Применяет специальный шрифт заголовка и выравнивание по левому краю
+ * @param text Текст заголовка для отображения
+ * @param width Ширина ячейки в пикселях
+ * @returns Промис с настроенной ячейкой заголовка
  */
 async function createHeaderCell(text: string, width: number): Promise<FrameNode> {
   const cell = createBaseCellMemoized(`Header: ${text}`, width, 'VERTICAL');
@@ -1335,7 +1392,7 @@ async function createHeaderCell(text: string, width: number): Promise<FrameNode>
   // Создаем текст
   const textNodes = await createTextNodesBatch([{ text, fontType: 'header' }]);
   const textNode = textNodes[0];
-  textNode.fontSize = CONSTANTS.TEXT_SIZE.HEADER;
+  textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.HEADER;
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
   
@@ -1344,7 +1401,8 @@ async function createHeaderCell(text: string, width: number): Promise<FrameNode>
 }
 
 /**
- * Кастомные типы ошибок для лучшей обработки
+ * Специализированный класс ошибок для проблем с переменными
+ * Содержит дополнительную информацию о проблемной переменной
  */
 class _VariableError extends Error {
   constructor(message: string, public readonly variableName?: string) {
@@ -1353,6 +1411,10 @@ class _VariableError extends Error {
   }
 }
 
+/**
+ * Специализированный класс ошибок для проблем с коллекциями
+ * Содержит дополнительную информацию о проблемной коллекции
+ */
 class _CollectionError extends Error {
   constructor(message: string, public readonly collectionId?: string) {
     super(message);
@@ -1361,9 +1423,10 @@ class _CollectionError extends Error {
 }
 
 /**
- * Логирует ошибки в консоль с дополнительной информацией
- * @param error - Ошибка для логирования
- * @param context - Контекст ошибки
+ * Логирует ошибки в консоль с временными метками и контекстом
+ * Обеспечивает структурированное логирование для отладки
+ * @param error Ошибка для логирования
+ * @param context Дополнительный контекст выполнения
  */
 function logError(error: Error, context?: string): void {
   const timestamp = new Date().toISOString();
@@ -1375,10 +1438,11 @@ function logError(error: Error, context?: string): void {
 }
 
 /**
- * Безопасно выполняет асинхронную функцию с обработкой ошибок
- * @param fn - Функция для выполнения
- * @param context - Контекст для логирования
- * @returns Promise с результатом или null в случае ошибки
+ * Обертка для безопасного выполнения асинхронных операций
+ * Перехватывает ошибки, логирует их и возвращает null вместо падения
+ * @param fn Асинхронная функция для выполнения
+ * @param context Контекст для логирования ошибок
+ * @returns Промис с результатом функции или null при ошибке
  */
 async function _safeExecute<T>(fn: () => Promise<T>, context?: string): Promise<T | null> {
   try {
