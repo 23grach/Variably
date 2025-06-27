@@ -726,10 +726,9 @@ function formatVariableName(variableName: string): string {
  */
 function generateDevToken(variableName: string): string {
   const cleanName = variableName
-    .toLowerCase()
     .replace(/\//g, '-')        // Заменяем слеши на дефисы
     .replace(/\s+/g, '-')       // Заменяем пробелы на дефисы
-    .replace(/[^a-z0-9\-_]/g, ''); // Удаляем все остальные специальные символы
+    .replace(/[^a-zA-Z0-9\-_]/g, ''); // Удаляем все остальные специальные символы, сохраняя заглавные буквы
   
   return `var(--${cleanName})`;
 }

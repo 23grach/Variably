@@ -1,7 +1,7 @@
 {
-  "name": "Variables-Sheet",
+  "name": "Variably",
   "version": "1.0.0",
-  "description": "Your Figma Plugin",
+  "description": "Variably is a Figma plugin that helps you manage your variables in a clean, structured table",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
