@@ -88,6 +88,7 @@
       overflow-y: auto;
       overflow-x: hidden;
       min-height: 0;
+      width: 100%;
     }
     
     .main::-webkit-scrollbar {
@@ -219,6 +220,36 @@
       font-size: var(--font-size-sm);
       margin: 0;
       max-width: 300px;
+    }
+    
+    /* Success State */
+    .success-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: var(--space-3xl);
+      min-height: 400px;
+    }
+    
+    .success-icon {
+      font-size: 80px;
+      margin-bottom: var(--space-lg);
+      animation: successPulse 0.6s ease-out;
+    }
+    
+    .success-title {
+      color: var(--color-text-primary);
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      margin: 0 0 var(--space-md) 0;
+    }
+    
+    @keyframes successPulse {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
     }
     
     /* Form Sections */
@@ -377,6 +408,8 @@
     .checkbox-group-content {
       max-height: 300px;
       overflow-y: auto;
+      overflow-x: hidden;
+      word-wrap: break-word;
     }
     
     .checkbox-group-content::-webkit-scrollbar {
@@ -738,11 +771,13 @@
 
     // Initialize
     window.onload = function() {
+      console.log('Window loaded, loading collections...'); // Debug log
       loadCollections();
       setupDropdown();
     };
 
     function loadCollections() {
+      console.log('Sending load-collections message...'); // Debug log
       parent.postMessage({ 
         pluginMessage: { type: 'load-collections' } 
       }, '*');
@@ -922,6 +957,11 @@
       const container = document.getElementById('modes-container');
       container.innerHTML = '';
       selectedModes = [];
+      
+      if (!modes || modes.length === 0) {
+        showEmptyModesState();
+        return;
+      }
 
       modes.forEach((mode, index) => {
         const modeItem = document.createElement('div');
@@ -1022,6 +1062,52 @@
       loading.style.display = 'none';
     }
     
+    function showEmptyCollectionsState() {
+      console.log('Showing empty collections state'); // Debug log
+      
+      // Hide loading
+      const loadingEl = document.getElementById('loading');
+      if (loadingEl) {
+        loadingEl.style.display = 'none';
+        console.log('Loading element hidden'); // Debug log
+      } else {
+        console.error('Loading element not found');
+      }
+      
+      // Hide form
+      const formEl = document.getElementById('form');
+      if (formEl) {
+        formEl.style.display = 'none';
+        console.log('Form element hidden'); // Debug log
+      }
+      
+      // Replace the main content area with empty state
+      const main = document.querySelector('.main');
+      if (main) {
+        main.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <h4 class="empty-state-title">No variable collections found</h4>
+            <p class="empty-state-description">Create a variable collection in Figma first, then try again.</p>
+          </div>
+        `;
+        console.log('Empty state content set'); // Debug log
+      } else {
+        console.error('Main element not found');
+      }
+    }
+    
+    function showEmptyModesState() {
+      const container = document.getElementById('modes-container');
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🎨</div>
+          <h4 class="empty-state-title">No themes found</h4>
+          <p class="empty-state-description">This collection doesn't have any modes or themes configured.</p>
+        </div>
+      `;
+    }
+    
     function showEmptyGroupsState() {
       const container = document.getElementById('groups-container');
       container.innerHTML = `
@@ -1032,8 +1118,19 @@
         </div>
       `;
     }
+    
+    function showNoGroupsButVariablesState(variableCount) {
+      const container = document.getElementById('groups-container');
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📄</div>
+          <h4 class="empty-state-title">No grouped variables</h4>
+          <p class="empty-state-description">Found ${variableCount} variables, but they don't follow group naming patterns (e.g., "color/primary", "spacing/lg").</p>
+        </div>
+      `;
+    }
 
-    function populateGroups(groups) {
+    function populateGroups(groups, totalVariables = 0) {
       const container = document.getElementById('groups-container');
       container.innerHTML = '';
       selectedGroups = [];
@@ -1042,7 +1139,11 @@
       hideGroupsLoading();
       
       if (!groups || groups.length === 0) {
-        showEmptyGroupsState();
+        if (totalVariables > 0) {
+          showNoGroupsButVariablesState(totalVariables);
+        } else {
+          showEmptyGroupsState();
+        }
         return;
       }
 
@@ -1206,9 +1307,21 @@
     // Handle messages from plugin
     window.addEventListener('message', function(event) {
       const msg = event.data.pluginMessage;
+      console.log('Received message:', msg); // Debug log
       
       if (msg.type === 'collections-loaded') {
         collections = msg.collections;
+        console.log('Collections loaded:', collections); // Debug log
+        
+        if (!collections || collections.length === 0) {
+          console.log('No collections found, showing empty state'); // Debug log
+          showEmptyCollectionsState();
+          return;
+        }
+        
+        // Hide loading and show form only if we have collections
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('form').style.display = 'block';
         
         const menu = document.getElementById('collection-menu');
         menu.innerHTML = '';
@@ -1232,27 +1345,61 @@
         if (window.resetDropdownFocus) {
           window.resetDropdownFocus();
         }
-        
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('form').style.display = 'block';
       }
       
       if (msg.type === 'groups-loaded') {
         availableGroups = msg.groups;
-        populateGroups(msg.groups);
+        populateGroups(msg.groups, msg.totalVariables);
         showSection('groups-section');
         updateCreateButton();
       }
       
-      if (msg.type === 'error') {
-        const loadingEl = document.getElementById('loading');
-        loadingEl.innerHTML = `
-          <div style="color: var(--color-error); text-align: center;">
-            <div style="font-size: 32px; margin-bottom: var(--space-lg);">⚠</div>
-            <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-sm); font-size: var(--font-size-lg);">Error</div>
-            <div style="font-size: var(--font-size-sm);">${msg.message}</div>
+      if (msg.type === 'table-created') {
+        // Show success state
+        const main = document.querySelector('.main');
+        main.innerHTML = `
+          <div class="success-state">
+            <div class="success-icon">✅</div>
+            <h3 class="success-title">Table created successfully!</h3>
+            <p style="color: var(--color-text-secondary); margin: 0 0 var(--space-lg) 0;">Your variables table has been generated and placed on the canvas.</p>
+            <button class="button button-secondary" onclick="window.location.reload()">
+              Create Another Table
+            </button>
           </div>
         `;
+        
+        // Reset create button
+        const createBtn = document.getElementById('create');
+        if (createBtn) {
+          createBtn.innerHTML = '<span>Create Table</span>';
+          createBtn.disabled = false;
+        }
+      }
+      
+      if (msg.type === 'error') {
+        // Hide loading first
+        document.getElementById('loading').style.display = 'none';
+        
+        // Show error in main area
+        const main = document.querySelector('.main');
+        main.innerHTML = `
+          <div class="empty-state">
+            <div style="font-size: 64px; margin-bottom: var(--space-lg);">⚠️</div>
+            <h4 class="empty-state-title">Error</h4>
+            <p class="empty-state-description">${msg.message}</p>
+            <button class="button button-secondary" onclick="window.location.reload()" style="margin-top: var(--space-lg);">
+              Try Again
+            </button>
+          </div>
+        `;
+        
+        // Reset create button on error
+        const createBtn = document.getElementById('create');
+        if (createBtn) {
+          createBtn.innerHTML = '<span>Create Table</span>';
+          createBtn.disabled = false;
+          updateCreateButton();
+        }
       }
     });
   </script>

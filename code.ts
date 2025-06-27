@@ -242,6 +242,8 @@ async function loadCollections(): Promise<void> {
     const collections = await figma.variables.getLocalVariableCollectionsAsync();
     const allVariables = await figma.variables.getLocalVariablesAsync();
     
+    console.log('Found collections:', collections.length); // Debug log
+    
     const collectionsData = collections.map(collection => {
       const variableCount = allVariables.filter(variable => 
         variable.variableCollectionId === collection.id
@@ -255,11 +257,14 @@ async function loadCollections(): Promise<void> {
       };
     });
 
+    console.log('Sending collections data:', collectionsData); // Debug log
+
     figma.ui.postMessage({
       type: 'collections-loaded',
       collections: collectionsData
     });
   } catch (error) {
+    console.error('Error loading collections:', error); // Debug log
     figma.ui.postMessage({
       type: 'error',
       message: 'Failed to load collections: ' + (error instanceof Error ? error.message : 'Unknown error')
@@ -279,12 +284,18 @@ async function loadGroups(collectionId: string): Promise<void> {
       variable.variableCollectionId === collectionId
     );
     
-    // Группируем переменные по префиксам
+    const totalVariables = collectionVariables.length;
+    
+    // Группируем переменные по префиксам (только те, что имеют слеш в названии)
     const groupsMap = new Map<string, number>();
     
     collectionVariables.forEach(variable => {
-      const prefix = variable.name.split('/')[0] || 'other';
-      groupsMap.set(prefix, (groupsMap.get(prefix) || 0) + 1);
+      const nameParts = variable.name.split('/');
+      // Группируем только переменные с префиксами (содержащие слеш)
+      if (nameParts.length > 1 && nameParts[0].trim()) {
+        const prefix = nameParts[0];
+        groupsMap.set(prefix, (groupsMap.get(prefix) || 0) + 1);
+      }
     });
     
     // Преобразуем в массив и сортируем по алфавиту
@@ -294,7 +305,8 @@ async function loadGroups(collectionId: string): Promise<void> {
     
     figma.ui.postMessage({
       type: 'groups-loaded',
-      groups: groups
+      groups: groups,
+      totalVariables: totalVariables
     });
   } catch (error) {
     figma.ui.postMessage({
@@ -436,7 +448,10 @@ async function createVariablesTable(collectionId: string, collectionName: string
     // 4. Создаем таблицу
     await createTableFrame(sortedVariablesData, modes);
     
-    figma.closePlugin('Variables table created successfully!');
+    // Don't close plugin, show success state instead
+    figma.ui.postMessage({
+      type: 'table-created'
+    });
     
   } catch (error) {
     figma.ui.postMessage({
