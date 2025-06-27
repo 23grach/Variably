@@ -1,10 +1,111 @@
-
 figma.showUI(__html__, { width: 400, height: 700 });
+
+// Debug: плагин запущен
+console.log('Variables Sheet plugin started successfully');
+
+/**
+ * Константы для избежания магических чисел
+ */
+const CONSTANTS = {
+  TEXT_SIZE: {
+    HEADER: 16,
+    BODY: 14,
+    SMALL: 12
+  },
+  ANIMATION: {
+    DURATION: 200
+  },
+  VALIDATION: {
+    MIN_WIDTH: 100,
+    MAX_VARIABLES: 1000
+  }
+} as const;
+
+/**
+ * Строго типизированный интерфейс для настроек таблицы
+ */
+interface StrictTableConfig {
+  readonly spacing: {
+    readonly section: number;
+    readonly group: number;
+    readonly cell: number;
+    readonly item: number;
+  };
+  readonly sizes: {
+    readonly cellHeight: number;
+    readonly colorCircle: number;
+    readonly columnWidth: {
+      readonly designToken: number;
+      readonly devToken: number;
+      readonly value: number;
+    };
+  };
+  readonly radius: {
+    readonly group: number;
+    readonly header: number;
+  };
+}
+
+/**
+ * Утилитарная функция для валидации входных данных
+ * @param value - Значение для проверки
+ * @param type - Ожидаемый тип
+ * @returns boolean Результат валидации
+ */
+function validateInput(value: unknown, type: 'string' | 'number' | 'boolean'): boolean {
+  switch (type) {
+    case 'string':
+      return typeof value === 'string' && value.length > 0;
+    case 'number':
+      return typeof value === 'number' && !isNaN(value) && isFinite(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    default:
+      return false;
+  }
+}
+
+/**
+ * Проверяет валидность цвета
+ * @param color - Объект цвета для проверки
+ * @returns boolean Результат валидации
+ */
+function _isValidColor(color: unknown): color is { r: number; g: number; b: number; a?: number } {
+  if (typeof color !== 'object' || color === null) return false;
+  
+  const c = color as Record<string, unknown>;
+  
+  // Проверяем наличие и валидность r, g, b
+  if (!validateInput(c.r, 'number') || !validateInput(c.g, 'number') || !validateInput(c.b, 'number')) {
+    return false;
+  }
+  
+  const r = c.r as number;
+  const g = c.g as number;
+  const b = c.b as number;
+  
+  if (r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
+    return false;
+  }
+  
+  // Проверяем a (опционально)
+  if (c.a !== undefined) {
+    if (!validateInput(c.a, 'number')) {
+      return false;
+    }
+    const a = c.a as number;
+    if (a < 0 || a > 1) {
+      return false;
+    }
+  }
+  
+  return true;
+}
 
 /**
  * Конфигурация размеров и отступов для таблицы
  */
-const TABLE_CONFIG = {
+const TABLE_CONFIG: StrictTableConfig = {
   spacing: {
     section: 24,
     group: 16,
@@ -100,6 +201,73 @@ interface GroupStyleConfig {
 }
 
 /**
+ * Кэш для загруженных шрифтов
+ */
+const fontCache = new Map<string, FontName>();
+
+/**
+ * Кэш для создания fills
+ */
+const fillCache = new Map<string, SolidPaint>();
+
+/**
+ * Создает базовый fill объект для заданного цвета с кэшированием
+ * @param color - Цвет fill
+ * @param opacity - Опциональная прозрачность
+ * @returns Fill объект
+ */
+function createSolidFill(color: { r: number; g: number; b: number }, opacity?: number): SolidPaint {
+  const key = `${color.r}-${color.g}-${color.b}-${opacity ?? 1}`;
+  
+  if (fillCache.has(key)) {
+    return fillCache.get(key)!;
+  }
+  
+  const fill: SolidPaint = {
+    type: 'SOLID',
+    color,
+    ...(opacity !== undefined && { opacity })
+  };
+  
+  fillCache.set(key, fill);
+  return fill;
+}
+
+/**
+ * Загружает шрифт с fallback цепочкой и кэшированием
+ * @param type - Тип шрифта (primary, secondary, header, fallback)
+ * @returns Promise<FontName> Загруженный шрифт
+ */
+async function loadFontWithFallback(type: 'primary' | 'secondary' | 'header' | 'fallback' = 'primary'): Promise<FontName> {
+  const cacheKey = type;
+  
+  if (fontCache.has(cacheKey)) {
+    return fontCache.get(cacheKey)!;
+  }
+  
+  const fontOrder = type === 'header' ? 
+    [FONT_CONFIG.header, FONT_CONFIG.fallback] :
+    type === 'secondary' ?
+    [FONT_CONFIG.secondary, FONT_CONFIG.fallback] :
+    [FONT_CONFIG.primary, FONT_CONFIG.secondary, FONT_CONFIG.fallback];
+
+  for (const font of fontOrder) {
+    try {
+      await figma.loadFontAsync(font);
+      fontCache.set(cacheKey, font);
+      return font;
+    } catch (error) {
+      // Продолжаем к следующему шрифту
+      continue;
+    }
+  }
+  
+  // Возвращаем последний fallback, если ничего не загрузилось
+  fontCache.set(cacheKey, FONT_CONFIG.fallback);
+  return FONT_CONFIG.fallback;
+}
+
+/**
  * Утилитарная функция для создания стилей групп
  * @returns Конфигурация стилей для групп переменных
  */
@@ -135,67 +303,57 @@ function applyGroupStyles(frame: FrameNode, styles: GroupStyleConfig): void {
 }
 
 /**
- * Создает базовый fill объект для заданного цвета
- * @param color - Цвет fill
- * @param opacity - Опциональная прозрачность
- * @returns Fill объект
+ * Мемоизированное создание базового фрейма
  */
-function createSolidFill(color: { r: number; g: number; b: number }, opacity?: number): SolidPaint {
-  return {
-    type: 'SOLID',
-    color,
-    ...(opacity !== undefined && { opacity })
-  };
-}
-
-/**
- * Загружает шрифт с fallback цепочкой
- * @param type - Тип шрифта (primary, secondary, header, fallback)
- * @returns Promise<FontName> Загруженный шрифт
- */
-async function loadFontWithFallback(type: 'primary' | 'secondary' | 'header' | 'fallback' = 'primary'): Promise<FontName> {
-  const fontOrder = type === 'header' ? 
-    [FONT_CONFIG.header, FONT_CONFIG.fallback] :
-    type === 'secondary' ?
-    [FONT_CONFIG.secondary, FONT_CONFIG.fallback] :
-    [FONT_CONFIG.primary, FONT_CONFIG.secondary, FONT_CONFIG.fallback];
-
-  for (const font of fontOrder) {
-    try {
-      await figma.loadFontAsync(font);
-      return font;
-    } catch (error) {
-      // Продолжаем к следующему шрифту
-      continue;
+const createBaseCellMemoized = (() => {
+  const cache = new Map<string, Partial<FrameNode>>();
+  
+  return function(name: string, width: number, layoutMode: 'HORIZONTAL' | 'VERTICAL' = 'VERTICAL'): FrameNode {
+    const cacheKey = `${width}-${layoutMode}`;
+    let template = cache.get(cacheKey);
+    
+    if (!template) {
+      template = {
+        layoutMode,
+        primaryAxisSizingMode: 'FIXED',
+        counterAxisSizingMode: 'AUTO',
+        paddingLeft: 16,
+        paddingRight: 16,
+        paddingTop: 12,
+        paddingBottom: 12,
+        itemSpacing: layoutMode === 'HORIZONTAL' ? TABLE_CONFIG.spacing.item : 0,
+        fills: []
+      };
+      cache.set(cacheKey, template);
     }
-  }
-  
-  // Возвращаем последний fallback, если ничего не загрузилось
-  return FONT_CONFIG.fallback;
-}
+    
+    const cell = figma.createFrame();
+    Object.assign(cell, template);
+    cell.name = name;
+    cell.resize(width, TABLE_CONFIG.sizes.cellHeight);
+    
+    return cell;
+  };
+})();
 
 /**
- * Создает базовый фрейм с общими настройками для ячеек
- * @param name - Название фрейма
- * @param width - Ширина фрейма
- * @param layoutMode - Режим layout ('HORIZONTAL' или 'VERTICAL')
- * @returns Настроенный FrameNode
+ * Пакетное создание текстовых нод для оптимизации производительности
+ * @param texts - Массив текстов для создания
+ * @returns Promise<TextNode[]> Массив созданных текстовых нод
  */
-function createBaseCell(name: string, width: number, layoutMode: 'HORIZONTAL' | 'VERTICAL' = 'VERTICAL'): FrameNode {
-  const cell = figma.createFrame();
-  cell.name = name;
-  cell.layoutMode = layoutMode;
-  cell.primaryAxisSizingMode = 'FIXED';
-  cell.counterAxisSizingMode = 'AUTO';
-  cell.resize(width, TABLE_CONFIG.sizes.cellHeight);
-  cell.paddingLeft = 16;
-  cell.paddingRight = 16;
-  cell.paddingTop = 12;
-  cell.paddingBottom = 12;
-  cell.itemSpacing = layoutMode === 'HORIZONTAL' ? TABLE_CONFIG.spacing.item : 0;
-  cell.fills = []; // Прозрачный фон по умолчанию
+async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'primary' | 'secondary' | 'header' }>): Promise<TextNode[]> {
+  // Предзагружаем все необходимые шрифты
+  const fontTypes = [...new Set(texts.map(t => t.fontType || 'primary'))];
+  await Promise.all(fontTypes.map(type => loadFontWithFallback(type)));
   
-  return cell;
+  return Promise.all(texts.map(async ({ text, fontType = 'primary' }) => {
+    const textNode = figma.createText();
+    textNode.fontName = await loadFontWithFallback(fontType);
+    textNode.characters = text;
+    textNode.fontSize = CONSTANTS.TEXT_SIZE.BODY;
+    textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
+    return textNode;
+  }));
 }
 
 /**
@@ -203,6 +361,7 @@ function createBaseCell(name: string, width: number, layoutMode: 'HORIZONTAL' | 
  * Маршрутизирует запросы на соответствующие функции
  */
 figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collectionName?: string; modes?: ModeInfo[]; groups?: GroupInfo[] }) => {
+  console.log('Message received:', msg.type, msg); // Debug log
   try {
     switch (msg.type) {
       case 'load-collections':
@@ -216,8 +375,20 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
         break;
       
       case 'create-table':
+        console.log('Creating table with params:', {
+          collectionId: msg.collectionId,
+          collectionName: msg.collectionName,
+          modes: msg.modes,
+          groups: msg.groups
+        });
         if (msg.collectionId && msg.collectionName && msg.modes && msg.groups) {
           await createVariablesTable(msg.collectionId, msg.collectionName, msg.modes, msg.groups);
+        } else {
+          console.error('Missing required parameters for table creation');
+          figma.ui.postMessage({
+            type: 'error',
+            message: 'Missing required parameters for table creation'
+          });
         }
         break;
       
@@ -448,15 +619,19 @@ async function createVariablesTable(collectionId: string, collectionName: string
     // 4. Создаем таблицу
     await createTableFrame(sortedVariablesData, modes);
     
-    // Don't close plugin, show success state instead
-    figma.ui.postMessage({
-      type: 'table-created'
-    });
+    // Показываем успешное уведомление и закрываем плагин
+    figma.notify('✅ Variables table created successfully!', { timeout: 3000 });
+    figma.closePlugin();
     
   } catch (error) {
+    // Показываем ошибку
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    figma.notify(`❌ Error: ${errorMessage}`, { error: true, timeout: 5000 });
+    
+    // Отправляем сообщение в UI для показа ошибки
     figma.ui.postMessage({
       type: 'error',
-      message: 'Failed to create table: ' + (error instanceof Error ? error.message : 'Unknown error')
+      message: errorMessage
     });
   }
 }
@@ -967,27 +1142,20 @@ async function createMainDataRow(variableData: VariableData, isLast: boolean): P
  * @returns FrameNode с ячейкой данных
  */
 async function createDataCell(text: string, width: number, type: 'design-token' | 'dev-token'): Promise<FrameNode> {
-  const cell = createBaseCell(`Data Cell: ${type}`, width, 'VERTICAL');
+  const cell = createBaseCellMemoized(`Data Cell: ${type}`, width, 'VERTICAL');
   
   // Настраиваем выравнивание контента
-  cell.primaryAxisAlignItems = 'CENTER'; // Центрирование по вертикали
-  cell.counterAxisAlignItems = 'MIN'; // Выравнивание по левому краю
+  cell.primaryAxisAlignItems = 'MIN';
+  cell.counterAxisAlignItems = 'MIN';
   
   // Создаем текст
-  const textNode = figma.createText();
-  
-  // Выбираем шрифт в зависимости от типа ячейки
-  const fontType = type === 'dev-token' ? 'primary' : 'secondary';
-  textNode.fontName = await loadFontWithFallback(fontType);
-  
-  textNode.characters = text;
-  textNode.fontSize = 16;
-  textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
+  const textNodes = await createTextNodesBatch([{ text, fontType: type === 'dev-token' ? 'primary' : 'secondary' }]);
+  const textNode = textNodes[0];
+  textNode.fontSize = CONSTANTS.TEXT_SIZE.HEADER;
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
   
   cell.appendChild(textNode);
-  
   return cell;
 }
 
@@ -1104,7 +1272,7 @@ async function createValueText(displayValue: string): Promise<TextNode> {
   const textNode = figma.createText();
   textNode.fontName = await loadFontWithFallback('primary');
   textNode.characters = displayValue;
-  textNode.fontSize = 16;
+  textNode.fontSize = CONSTANTS.TEXT_SIZE.BODY;
   textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
@@ -1128,7 +1296,7 @@ async function createValueCell(
   colorValue?: { r: number; g: number; b: number; a?: number } | null, 
   aliasVariable?: Variable | null
 ): Promise<FrameNode> {
-  const cell = createBaseCell('Value Cell', width, 'HORIZONTAL');
+  const cell = createBaseCellMemoized('Value Cell', width, 'HORIZONTAL');
   
   // Настраиваем выравнивание контента
   cell.primaryAxisAlignItems = 'MIN'; // Выравнивание по левому краю (для горизонтального layout)
@@ -1158,22 +1326,65 @@ async function createValueCell(
  * @returns FrameNode с ячейкой заголовка
  */
 async function createHeaderCell(text: string, width: number): Promise<FrameNode> {
-  const cell = createBaseCell(`Header: ${text}`, width, 'VERTICAL');
+  const cell = createBaseCellMemoized(`Header: ${text}`, width, 'VERTICAL');
   
   // Настраиваем выравнивание контента
-  cell.primaryAxisAlignItems = 'CENTER'; // Центрирование по вертикали
-  cell.counterAxisAlignItems = 'MIN'; // Выравнивание по левому краю
+  cell.primaryAxisAlignItems = 'MIN';
+  cell.counterAxisAlignItems = 'MIN';
   
   // Создаем текст
-  const textNode = figma.createText();
-  textNode.fontName = await loadFontWithFallback('header');
-  textNode.characters = text;
-  textNode.fontSize = 16;
-  textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
+  const textNodes = await createTextNodesBatch([{ text, fontType: 'header' }]);
+  const textNode = textNodes[0];
+  textNode.fontSize = CONSTANTS.TEXT_SIZE.HEADER;
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
   
   cell.appendChild(textNode);
-  
   return cell;
+}
+
+/**
+ * Кастомные типы ошибок для лучшей обработки
+ */
+class _VariableError extends Error {
+  constructor(message: string, public readonly variableName?: string) {
+    super(message);
+    this.name = 'VariableError';
+  }
+}
+
+class _CollectionError extends Error {
+  constructor(message: string, public readonly collectionId?: string) {
+    super(message);
+    this.name = 'CollectionError';
+  }
+}
+
+/**
+ * Логирует ошибки в консоль с дополнительной информацией
+ * @param error - Ошибка для логирования
+ * @param context - Контекст ошибки
+ */
+function logError(error: Error, context?: string): void {
+  const timestamp = new Date().toISOString();
+  const contextStr = context ? ` [${context}]` : '';
+  console.error(`${timestamp}${contextStr}: ${error.name}: ${error.message}`);
+  if (error.stack) {
+    console.error(error.stack);
+  }
+}
+
+/**
+ * Безопасно выполняет асинхронную функцию с обработкой ошибок
+ * @param fn - Функция для выполнения
+ * @param context - Контекст для логирования
+ * @returns Promise с результатом или null в случае ошибки
+ */
+async function _safeExecute<T>(fn: () => Promise<T>, context?: string): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (error) {
+    logError(error instanceof Error ? error : new Error(String(error)), context);
+    return null;
+  }
 }

@@ -260,41 +260,6 @@
       box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.2);
     }
 
-    /* Keyboard shortcuts hint */
-    .keyboard-hint {
-      position: fixed;
-      bottom: var(--space-lg);
-      right: var(--space-lg);
-      background: var(--color-bg-elevated);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      padding: var(--space-md);
-      font-size: var(--font-size-xs);
-      color: var(--color-text-secondary);
-      box-shadow: var(--shadow-md);
-      opacity: 0;
-      transform: translateY(8px);
-      transition: all var(--transition-base);
-      pointer-events: none;
-      z-index: 1000;
-    }
-
-    .keyboard-hint.show {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: all;
-    }
-
-    .keyboard-hint kbd {
-      background: var(--color-bg-secondary);
-      border: 1px solid var(--color-border);
-      border-radius: 3px;
-      padding: 2px 6px;
-      font-family: inherit;
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-medium);
-    }
-
     /* Button focus states для keyboard navigation */
     .button:focus-visible {
       outline: none;
@@ -382,34 +347,13 @@
         background: var(--color-bg-primary);
       }
     
-    /* Success State */
+
+
+
+
+    /* Success State Removal - keep minimal styles for backward compatibility */
     .success-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: var(--space-3xl);
-      min-height: 400px;
-    }
-    
-    .success-icon {
-      font-size: 80px;
-      margin-bottom: var(--space-lg);
-      animation: successPulse 0.6s ease-out;
-    }
-    
-    .success-title {
-      color: var(--color-text-primary);
-      font-size: var(--font-size-xl);
-      font-weight: var(--font-weight-semibold);
-      margin: 0 0 var(--space-md) 0;
-    }
-    
-    @keyframes successPulse {
-      0% { transform: scale(0.8); opacity: 0; }
-      50% { transform: scale(1.1); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
+      display: none !important;
     }
     
     /* Form Sections */
@@ -756,54 +700,8 @@
       gap: var(--space-lg);
     }
     
-    .button {
+    .actions .button {
       flex: 1;
-      height: 48px;
-      padding: 0 var(--space-2xl);
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: var(--font-size-base);
-      font-weight: var(--font-weight-medium);
-      font-family: inherit;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--space-sm);
-    }
-    
-    .button-primary {
-      background: var(--color-accent);
-      color: white;
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .button-primary:hover:not(:disabled) {
-      background: var(--color-accent-hover);
-      box-shadow: var(--shadow-md);
-    }
-    
-    .button-primary:active:not(:disabled) {
-      background: var(--color-accent-pressed);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .button-secondary {
-      background: var(--color-bg-primary);
-      color: var(--color-text-primary);
-      border: 1px solid var(--color-border);
-    }
-    
-    .button-secondary:hover:not(:disabled) {
-      background: var(--color-bg-tertiary);
-      border-color: var(--color-text-secondary);
-    }
-    
-    .button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      pointer-events: none;
     }
     
     /* Animations */
@@ -832,37 +730,6 @@
     
     .checkbox-item:hover {
       transform: translateX(2px);
-    }
-    
-    /* Success State */
-    .success-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--space-lg);
-      padding: var(--space-3xl);
-      text-align: center;
-      animation: slideUp var(--transition-base) ease-out;
-    }
-    
-    .success-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: var(--color-success);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 32px;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    
-    .success-title {
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-semibold);
-      color: var(--color-text-primary);
-      margin: 0;
     }
     
     /* Status Indicator */
@@ -1010,13 +877,14 @@
     let selectedGroups = [];
     let dropdownOpen = false;
 
+
+
     // Initialize
     window.onload = function() {
       console.log('Window loaded, loading collections...'); // Debug log
       loadCollections();
       setupDropdown();
       setupKeyboardShortcuts();
-      showKeyboardHints();
     };
 
     // Keyboard shortcuts setup
@@ -1042,58 +910,13 @@
       });
     }
 
-    // Показать подсказки о keyboard shortcuts
-    function showKeyboardHints() {
-      // Определяем платформу для правильных клавиш
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const modifierKey = isMac ? 'Cmd' : 'Ctrl';
-      
-      // Создаем элемент с подсказками
-      const hintsEl = document.createElement('div');
-      hintsEl.className = 'keyboard-hint';
-      hintsEl.innerHTML = `
-        <div style="margin-bottom: 4px;"><kbd>${modifierKey}</kbd> + <kbd>Enter</kbd> Create table</div>
-        <div><kbd>Esc</kbd> Cancel</div>
-      `;
-      document.body.appendChild(hintsEl);
-
-      // Показываем подсказки на 3 секунды при загрузке
-      setTimeout(() => {
-        hintsEl.classList.add('show');
-      }, 1000);
-
-      setTimeout(() => {
-        hintsEl.classList.remove('show');
-      }, 4000);
-
-      // Показываем при наведении на кнопки
-      const createButton = document.getElementById('create');
-      const cancelButton = document.getElementById('cancel');
-
-      if (createButton) {
-        createButton.addEventListener('mouseenter', () => {
-          hintsEl.classList.add('show');
-        });
-        createButton.addEventListener('mouseleave', () => {
-          hintsEl.classList.remove('show');
-        });
-      }
-
-      if (cancelButton) {
-        cancelButton.addEventListener('mouseenter', () => {
-          hintsEl.classList.add('show');
-        });
-        cancelButton.addEventListener('mouseleave', () => {
-          hintsEl.classList.remove('show');
-        });
-      }
-    }
-
     // Функция для отслеживания кликов по help ссылкам
     function openHelpLink(event) {
       // Отправляем аналитику или логирование, если нужно
       console.log('Help link clicked:', event.target.href);
     }
+
+
 
     function loadCollections() {
       console.log('Sending load-collections message...'); // Debug log
@@ -1105,6 +928,12 @@
     function setupDropdown() {
       const trigger = document.getElementById('collection-trigger');
       const menu = document.getElementById('collection-menu');
+      
+      if (!trigger || !menu) {
+        console.error('Dropdown elements not found:', { trigger: !!trigger, menu: !!menu });
+        return;
+      }
+      
       let focusedItemIndex = -1;
       
       trigger.addEventListener('click', function(e) {
@@ -1183,6 +1012,11 @@
       const trigger = document.getElementById('collection-trigger');
       const menu = document.getElementById('collection-menu');
       
+      if (!trigger || !menu) {
+        console.error('Cannot open dropdown: elements not found');
+        return;
+      }
+      
       dropdownOpen = true;
       trigger.classList.add('open');
       menu.classList.add('open');
@@ -1192,6 +1026,12 @@
       const trigger = document.getElementById('collection-trigger');
       const menu = document.getElementById('collection-menu');
       
+      if (!trigger || !menu) {
+        // Молча сбрасываем состояние, если элементы не найдены
+        dropdownOpen = false;
+        return;
+      }
+      
       dropdownOpen = false;
       trigger.classList.remove('open');
       menu.classList.remove('open');
@@ -1199,17 +1039,31 @@
 
     function showError(elementId, message) {
       const errorEl = document.getElementById(elementId);
+      if (!errorEl) {
+        console.error(`Error element with id "${elementId}" not found`);
+        return;
+      }
       errorEl.textContent = message;
       errorEl.style.display = 'flex';
     }
 
     function hideError(elementId) {
       const errorEl = document.getElementById(elementId);
+      if (!errorEl) {
+        console.warn(`Error element with id "${elementId}" not found for hiding`);
+        return;
+      }
       errorEl.style.display = 'none';
     }
 
     function updateCreateButton() {
       const createBtn = document.getElementById('create');
+      if (!createBtn) {
+        // Кнопка create может не существовать в некоторых состояниях
+        console.warn('Create button not found');
+        return;
+      }
+      
       const hasCollection = selectedCollection !== null;
       const hasModes = selectedModes.length > 0;
       const hasGroups = selectedGroups.length > 0;
@@ -1336,18 +1190,20 @@
           
           // Update "Select All" checkbox state for modes
           const selectAllCb = document.getElementById('select-all-modes');
-          const allModeCbs = container.querySelectorAll('input[type="checkbox"]');
-          const checkedModeCbs = container.querySelectorAll('input[type="checkbox"]:checked');
-          
-          if (checkedModeCbs.length === 0) {
-            selectAllCb.checked = false;
-            selectAllCb.indeterminate = false;
-          } else if (checkedModeCbs.length === allModeCbs.length) {
-            selectAllCb.checked = true;
-            selectAllCb.indeterminate = false;
-          } else {
-            selectAllCb.checked = false;
-            selectAllCb.indeterminate = true;
+          if (selectAllCb) {
+            const allModeCbs = container.querySelectorAll('input[type="checkbox"]');
+            const checkedModeCbs = container.querySelectorAll('input[type="checkbox"]:checked');
+            
+            if (checkedModeCbs.length === 0) {
+              selectAllCb.checked = false;
+              selectAllCb.indeterminate = false;
+            } else if (checkedModeCbs.length === allModeCbs.length) {
+              selectAllCb.checked = true;
+              selectAllCb.indeterminate = false;
+            } else {
+              selectAllCb.checked = false;
+              selectAllCb.indeterminate = true;
+            }
           }
           
           updateCreateButton();
@@ -1360,6 +1216,10 @@
       
       // Setup "Select All" functionality for modes
       const selectAllCheckbox = document.getElementById('select-all-modes');
+      if (!selectAllCheckbox) {
+        console.warn('select-all-modes element not found');
+        return;
+      }
       selectAllCheckbox.checked = false;
       selectAllCheckbox.indeterminate = false;
       
@@ -1404,22 +1264,6 @@
     function showEmptyCollectionsState() {
       console.log('Showing empty collections state'); // Debug log
       
-      // Hide loading
-      const loadingEl = document.getElementById('loading');
-      if (loadingEl) {
-        loadingEl.style.display = 'none';
-        console.log('Loading element hidden'); // Debug log
-      } else {
-        console.error('Loading element not found');
-      }
-      
-      // Hide form
-      const formEl = document.getElementById('form');
-      if (formEl) {
-        formEl.style.display = 'none';
-        console.log('Form element hidden'); // Debug log
-      }
-      
       // Replace the main content area with enhanced empty state
       const main = document.querySelector('.main');
       if (main) {
@@ -1438,9 +1282,9 @@
                  onclick="openHelpLink(event)">
                 📖 Learn how to create variables
               </a>
-              <button class="button button-secondary" onclick="window.location.reload()">
-                🔄 Refresh and try again
-              </button>
+                          <button class="button button-secondary" onclick="window.location.reload()">
+              🔄 Refresh and try again
+            </button>
             </div>
           </div>
         `;
@@ -1448,6 +1292,11 @@
       } else {
         console.error('Main element not found');
       }
+      
+      // Переключаемся в состояние empty
+              // Show empty state
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('form').style.display = 'none';
     }
     
     function showEmptyModesState() {
@@ -1604,6 +1453,12 @@
     function updateSelectAllGroupsState() {
       const container = document.getElementById('groups-container');
       const selectAllCb = document.getElementById('select-all-groups');
+      
+      if (!selectAllCb) {
+        console.warn('select-all-groups element not found');
+        return;
+      }
+      
       const allGroupCbs = container.querySelectorAll('input[type="checkbox"]');
       const checkedGroupCbs = container.querySelectorAll('input[type="checkbox"]:checked');
       
@@ -1621,6 +1476,12 @@
     
     function setupSelectAllGroups() {
       const selectAllCheckbox = document.getElementById('select-all-groups');
+      
+      if (!selectAllCheckbox) {
+        console.warn('select-all-groups element not found');
+        return;
+      }
+      
       selectAllCheckbox.checked = false;
       selectAllCheckbox.indeterminate = false;
       
@@ -1665,6 +1526,13 @@
     });
 
     document.getElementById('create').addEventListener('click', function() {
+      console.log('Create button clicked!'); // Debug log
+      console.log('Current state:', {
+        selectedCollection,
+        selectedModes,
+        selectedGroups
+      }); // Debug log
+      
       if (!selectedCollection || selectedModes.length === 0 || selectedGroups.length === 0) {
         if (!selectedCollection) {
           showError('collection-error', 'Please select a collection');
@@ -1690,6 +1558,49 @@
       `;
       button.disabled = true;
 
+      console.log('Sending create-table message:', {
+        collectionId: selectedCollection.id,
+        collectionName: selectedCollection.name,
+        modes: selectedModes,
+        groups: selectedGroups
+      }); // Debug log
+      
+      // Скрываем всю форму и показываем только loading
+      document.querySelector('.main').style.display = 'none';
+      document.querySelector('.actions').style.display = 'none';
+      
+      // Показываем простой loading экран
+      document.body.innerHTML = `
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          gap: 16px;
+          background: var(--color-bg);
+          color: var(--color-text);
+        ">
+          <div style="
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--color-border);
+            border-top: 3px solid var(--color-text);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          "></div>
+          <div style="font-size: 14px; color: var(--color-text-secondary);">
+            Creating variables table...
+          </div>
+        </div>
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      `;
+      
       parent.postMessage({ 
         pluginMessage: { 
           type: 'create-table',
@@ -1699,15 +1610,6 @@
           groups: selectedGroups
         } 
       }, '*');
-
-      // Auto-reset after timeout (fallback)
-      setTimeout(() => {
-        if (button.disabled) {
-          button.innerHTML = originalContent;
-          button.disabled = false;
-          updateCreateButton();
-        }
-      }, 10000);
     });
 
     // Handle messages from plugin
@@ -1725,7 +1627,8 @@
           return;
         }
         
-        // Hide loading and show form only if we have collections
+        // Переключаемся в состояние формы
+        // Show form
         document.getElementById('loading').style.display = 'none';
         document.getElementById('form').style.display = 'block';
         
@@ -1760,67 +1663,44 @@
         updateCreateButton();
       }
       
-      if (msg.type === 'table-created') {
-        // Show success state
-        const main = document.querySelector('.main');
-        main.innerHTML = `
-          <div class="success-state">
-            <div class="empty-state-icon">✅</div>
-            <h3 class="empty-state-title">Table created successfully!</h3>
-            <p class="empty-state-description">
-              Your variables table has been generated and placed on the canvas. 
-              You can now use it to document and share your design tokens.
-            </p>
-            <div class="empty-state-actions">
-              <button class="button button-primary" onclick="window.location.reload()">
-                ✨ Create another table
-              </button>
-            </div>
-          </div>
-        `;
-        
-        // Reset create button
-        const createBtn = document.getElementById('create');
-        if (createBtn) {
-          createBtn.innerHTML = '<span>Create Table</span>';
-          createBtn.disabled = false;
-        }
-      }
-      
       if (msg.type === 'error') {
-        // Hide loading first
-        document.getElementById('loading').style.display = 'none';
+        console.error('Plugin error received:', msg.message);
         
-        // Show enhanced error state in main area
-        const main = document.querySelector('.main');
-        main.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">⚠️</div>
-            <h4 class="empty-state-title">Something went wrong</h4>
-            <p class="empty-state-description">
-              ${msg.message || 'An unexpected error occurred while loading the plugin.'}
-            </p>
-            <div class="empty-state-actions">
-              <button class="button button-primary" onclick="window.location.reload()">
-                🔄 Try again
-              </button>
-              <a href="https://help.figma.com/hc/en-us/articles/15339657135383-Guide-to-variables-in-Figma" 
-                 target="_blank" 
-                 class="help-link"
-                 onclick="openHelpLink(event)">
-                📖 Get help with variables
-              </a>
+        // Показываем простой экран ошибки
+        document.body.innerHTML = `
+          <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 16px;
+            background: var(--color-bg);
+            color: var(--color-text);
+            padding: 24px;
+            text-align: center;
+          ">
+            <div style="font-size: 32px;">❌</div>
+            <div style="font-size: 16px; font-weight: 500; color: var(--color-text);">
+              Error creating table
             </div>
+            <div style="font-size: 14px; color: var(--color-text-secondary); max-width: 300px;">
+              ${msg.message || 'Unknown error occurred'}
+            </div>
+            <button onclick="window.location.reload()" style="
+              background: var(--color-bg-brand);
+              color: var(--color-text-onbrand);
+              border: none;
+              padding: 8px 16px;
+              border-radius: 6px;
+              font-size: 12px;
+              cursor: pointer;
+              margin-top: 8px;
+            ">
+              Try Again
+            </button>
           </div>
         `;
-        
-        // Reset create button on error
-        const createBtn = document.getElementById('create');
-        if (createBtn) {
-          createBtn.innerHTML = '<span>Create Table</span>';
-          createBtn.disabled = false;
-          updateCreateButton();
-        }
       }
     });
   </script>
