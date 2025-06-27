@@ -23,6 +23,9 @@
 
 figma.showUI(__html__, { width: 400, height: 700 });
 
+// Автоматически загружаем коллекции при запуске плагина
+loadCollections();
+
 /**
  * Константы приложения для избежания магических чисел
  * Содержит настройки размеров, анимации и валидации
@@ -212,6 +215,8 @@ interface ModeInfo {
 interface GroupInfo {
   prefix: string;
   count: number;
+  isIndividual?: boolean; // Флаг для индивидуальных переменных
+  variableName?: string; // Полное имя переменной для индивидуальных элементов
 }
 
 /**
@@ -424,9 +429,7 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
         }
         break;
       
-      case 'cancel':
-        figma.closePlugin();
-        break;
+
     }
   } catch (error) {
     figma.ui.postMessage({
@@ -491,22 +494,39 @@ async function loadGroups(collectionId: string): Promise<void> {
     
     const totalVariables = collectionVariables.length;
     
-    // Группируем переменные по префиксам (только те, что имеют слеш в названии)
+    // Группируем переменные по префиксам и собираем индивидуальные переменные
     const groupsMap = new Map<string, number>();
+    const individualVariables: string[] = [];
     
     collectionVariables.forEach(variable => {
       const nameParts = variable.name.split('/');
-      // Группируем только переменные с префиксами (содержащие слеш)
+      // Если переменная имеет группу (содержит слеш)
       if (nameParts.length > 1 && nameParts[0].trim()) {
         const prefix = nameParts[0];
         groupsMap.set(prefix, (groupsMap.get(prefix) || 0) + 1);
+      } else {
+        // Переменная без группы - добавляем как индивидуальную
+        individualVariables.push(variable.name);
       }
     });
     
-    // Преобразуем в массив и сортируем по алфавиту
-    const groups: GroupInfo[] = Array.from(groupsMap.entries())
+    // Создаем список групп
+    let groups: GroupInfo[] = Array.from(groupsMap.entries())
       .map(([prefix, count]) => ({ prefix, count }))
       .sort((a, b) => a.prefix.localeCompare(b.prefix, 'en', { sensitivity: 'base' }));
+    
+    // Добавляем индивидуальные переменные в список
+    const individualGroups: GroupInfo[] = individualVariables
+      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+      .map(variableName => ({
+        prefix: variableName,
+        count: 1,
+        isIndividual: true,
+        variableName: variableName
+      }));
+    
+    // Объединяем группы и индивидуальные переменные
+    groups = [...groups, ...individualGroups];
     
     figma.ui.postMessage({
       type: 'groups-loaded',
@@ -541,10 +561,22 @@ async function getFilteredVariables(collectionId: string, groups: GroupInfo[]): 
   );
 
   // Фильтруем переменные по выбранным группам
-  const selectedPrefixes = groups.map(g => g.prefix);
   const filteredVariables = collectionVariables.filter(variable => {
-    const prefix = variable.name.split('/')[0] || 'other';
-    return selectedPrefixes.includes(prefix);
+    const nameParts = variable.name.split('/');
+    
+    // Проверяем каждую выбранную группу
+    return groups.some(group => {
+      if (group.isIndividual) {
+        // Для индивидуальных переменных сравниваем полное имя
+        return variable.name === group.variableName;
+      } else {
+        // Для групп сравниваем префикс
+        if (nameParts.length > 1 && nameParts[0].trim()) {
+          return nameParts[0] === group.prefix;
+        }
+        return false;
+      }
+    });
   });
 
   if (filteredVariables.length === 0) {

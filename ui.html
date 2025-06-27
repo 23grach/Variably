@@ -385,13 +385,17 @@
        * Footer с действиями - фиксированная область внизу
        */
       .actions {
-        display: flex;
+        display: none !important; /* Initially hidden, shown only when form is loaded */
         justify-content: space-between;
         align-items: center;
         gap: var(--space-lg);
         padding: var(--space-2xl) var(--space-3xl);
         border-top: 1px solid var(--color-border); /* Визуальное разделение */
         background: var(--color-bg-primary);
+      }
+      
+      .actions.visible {
+        display: flex !important; /* Show only when explicitly made visible */
       }
     
 
@@ -872,7 +876,7 @@
         
         <div class="form-section hidden" id="groups-section">
           <h3 class="section-title">
-            Variable Groups
+            Variables
             <div id="groups-loading" class="inline-loading" style="display: none;">
               <div class="inline-loading-spinner"></div>
               <span>Loading groups...</span>
@@ -893,8 +897,8 @@
     </main>
     
     <footer class="actions">
-      <button id="cancel" class="button button-secondary">
-        <span>Cancel</span>
+      <button id="refresh" class="button button-secondary">
+        <span>🔄 Refresh</span>
       </button>
       <button id="create" class="button button-primary" disabled>
         <span>Create Table</span>
@@ -940,12 +944,12 @@
           }
         }
         
-        // Escape для отмены
-        if (e.key === 'Escape') {
+        // Escape или F5 для обновления списков
+        if (e.key === 'Escape' || e.key === 'F5') {
           e.preventDefault();
-          const cancelButton = document.getElementById('cancel');
-          if (cancelButton) {
-            cancelButton.click();
+          const refreshButton = document.getElementById('refresh');
+          if (refreshButton) {
+            refreshButton.click();
           }
         }
       });
@@ -960,6 +964,107 @@
       console.log('Help link clicked:', event.target.href);
     }
 
+        /**
+     * Обновление плагина - сохраняет выбранные данные пользователя
+     */
+    function refreshPlugin() {
+      // Сохраняем текущее состояние пользователя
+      const savedState = {
+        selectedCollectionId: selectedCollection ? selectedCollection.id : null,
+        selectedModeIds: [...selectedModes.map(mode => mode.modeId)],
+        selectedGroupNames: [...selectedGroups.map(group => group.name || group.prefix)]
+      };
+      
+      console.log('Saving state before refresh:', savedState);
+      
+      // Восстанавливаем оригинальную структуру
+      const main = document.querySelector('.main');
+      const actionsElement = document.querySelector('.actions');
+      
+      if (main) {
+        main.innerHTML = `
+          <div id="loading" class="loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading collections...</div>
+          </div>
+          
+          <div id="form" style="display: none;">
+            <div class="form-section">
+              <h3 class="section-title">Collection</h3>
+              <div class="dropdown">
+                <button type="button" id="collection-trigger" class="dropdown-trigger">
+                  <span>Select a collection...</span>
+                  <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                <div id="collection-menu" class="dropdown-menu">
+                  <!-- Options will be populated here -->
+                </div>
+              </div>
+              <div id="collection-error" class="error" style="display: none;"></div>
+            </div>
+            
+            <div class="form-section hidden" id="modes-section">
+              <h3 class="section-title">Themes & Modes</h3>
+              <div class="checkbox-group">
+                <div class="checkbox-group-header">
+                  <input type="checkbox" id="select-all-modes" class="checkbox-input">
+                  <label for="select-all-modes" class="checkbox-label">Select All Themes</label>
+                </div>
+                <div class="checkbox-group-content" id="modes-container">
+                  <!-- Modes will be populated here -->
+                </div>
+              </div>
+              <div id="modes-error" class="error" style="display: none;"></div>
+            </div>
+            
+            <div class="form-section hidden" id="groups-section">
+              <h3 class="section-title">
+                Variables
+                <div id="groups-loading" class="inline-loading" style="display: none;">
+                  <div class="inline-loading-spinner"></div>
+                  <span>Loading variables...</span>
+                </div>
+              </h3>
+              <div class="checkbox-group">
+                <div class="checkbox-group-header">
+                  <input type="checkbox" id="select-all-groups" class="checkbox-input">
+                  <label for="select-all-groups" class="checkbox-label">Select All</label>
+                </div>
+                <div class="checkbox-group-content" id="groups-container">
+                  <!-- Groups will be populated here -->
+                </div>
+              </div>
+              <div id="groups-error" class="error" style="display: none;"></div>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Скрываем footer
+      if (actionsElement) {
+        actionsElement.classList.remove('visible');
+      }
+      
+      // Сбрасываем только UI состояние, но сохраняем savedState для восстановления
+      collections = [];
+      selectedCollection = null;
+      selectedModes = [];
+      availableGroups = [];
+      selectedGroups = [];
+      dropdownOpen = false;
+      
+      // Сохраняем состояние для восстановления после загрузки данных
+      window.pendingStateRestore = savedState;
+      
+      // Переустанавливаем обработчики
+      setupDropdown();
+      
+      // Перезагружаем коллекции
+      loadCollections();
+    }
+
     /**
      * Загрузка списка коллекций переменных
      * Отправляет запрос в основной поток плагина
@@ -969,6 +1074,88 @@
       parent.postMessage({ 
         pluginMessage: { type: 'load-collections' } 
       }, '*');
+    }
+
+    /**
+     * Восстанавливает сохранённое состояние пользователя после обновления данных
+     */
+    function restoreState() {
+      const savedState = window.pendingStateRestore;
+      if (!savedState) {
+        console.log('No saved state to restore');
+        return;
+      }
+      
+      console.log('Restoring saved state:', savedState);
+      
+      // Восстанавливаем выбранную коллекцию
+      if (savedState.selectedCollectionId && collections.length > 0) {
+        const collection = collections.find(c => c.id === savedState.selectedCollectionId);
+        if (collection) {
+          console.log('Restoring collection:', collection.name);
+          selectCollection(collection);
+          
+          // После выбора коллекции нужно дождаться загрузки групп, чтобы восстановить остальное
+          // Это будет обработано в обработчике 'groups-loaded'
+        }
+      }
+      
+      // НЕ очищаем сохранённое состояние - оно понадобится в restoreSelections()
+    }
+
+    /**
+     * Восстанавливает выбранные темы и группы после их загрузки
+     */
+    function restoreSelections() {
+      const savedState = window.pendingStateRestore;
+      if (!savedState) return;
+      
+      console.log('Restoring selections:', savedState);
+      
+      // Восстанавливаем выбранные темы
+      if (savedState.selectedModeIds.length > 0 && selectedCollection && selectedCollection.modes) {
+        savedState.selectedModeIds.forEach(modeId => {
+          const mode = selectedCollection.modes.find(m => m.modeId === modeId);
+          if (mode) {
+            const checkbox = document.querySelector(`input[value="${modeId}"]`);
+            if (checkbox) {
+              checkbox.checked = true;
+              selectedModes.push({
+                modeId: mode.modeId,
+                name: mode.name
+              });
+            }
+          }
+        });
+        
+        // Обновляем состояние чекбокса "выбрать все" для modes
+        updateSelectAllModesState();
+        console.log('Restored modes:', selectedModes.map(m => m.name));
+      }
+      
+      // Восстанавливаем выбранные группы
+      if (savedState.selectedGroupNames.length > 0 && availableGroups.length > 0) {
+        savedState.selectedGroupNames.forEach(groupName => {
+          const group = availableGroups.find(g => (g.name || g.prefix) === groupName);
+          if (group) {
+            const checkbox = document.querySelector(`input[value="${group.prefix}"]`);
+            if (checkbox) {
+              checkbox.checked = true;
+              selectedGroups.push(group);
+            }
+          }
+        });
+        
+        // Обновляем состояние чекбокса "выбрать все" для groups
+        updateSelectAllGroupsState();
+        console.log('Restored groups:', selectedGroups.map(g => g.name || g.prefix));
+      }
+      
+      // Обновляем кнопку создания
+      updateCreateButton();
+      
+      // Очищаем сохранённое состояние после восстановления
+      delete window.pendingStateRestore;
     }
 
     /**
@@ -1327,7 +1514,7 @@
                  onclick="openHelpLink(event)">
                 📖 Learn how to create variables
               </a>
-                          <button class="button button-secondary" onclick="window.location.reload()">
+                          <button class="button button-secondary" onclick="refreshPlugin()">
               🔄 Refresh and try again
             </button>
             </div>
@@ -1342,6 +1529,15 @@
               // Show empty state
         document.getElementById('loading').style.display = 'none';
         document.getElementById('form').style.display = 'none';
+        
+        // Hide footer with Cancel/Create buttons in empty state
+        const actionsElement = document.querySelector('.actions');
+        if (actionsElement) {
+          actionsElement.classList.remove('visible');
+          console.log('Footer hidden in empty state'); // Debug log
+        } else {
+          console.error('Actions element not found'); // Debug log
+        }
     }
     
     function showEmptyModesState() {
@@ -1388,27 +1584,7 @@
       `;
     }
     
-    function showNoGroupsButVariablesState(variableCount) {
-      const container = document.getElementById('groups-container');
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📄</div>
-          <h4 class="empty-state-title">No grouped variables</h4>
-          <p class="empty-state-description">
-            Found ${variableCount} variables, but they don't follow group naming patterns. 
-            Use patterns like "color/primary", "spacing/lg", or "typography/heading" to create groups.
-          </p>
-          <div class="empty-state-actions">
-            <a href="https://help.figma.com/hc/en-us/articles/15339657135383-Guide-to-variables-in-Figma#h_01H4YBX9ZJVPB3E2RNZQFMC6ZF" 
-               target="_blank" 
-               class="help-link"
-               onclick="openHelpLink(event)">
-              📖 Learn about variable naming
-            </a>
-          </div>
-        </div>
-      `;
-    }
+
 
     function populateGroups(groups, totalVariables = 0) {
       const container = document.getElementById('groups-container');
@@ -1419,11 +1595,7 @@
       hideGroupsLoading();
       
       if (!groups || groups.length === 0) {
-        if (totalVariables > 0) {
-          showNoGroupsButVariablesState(totalVariables);
-        } else {
-          showEmptyGroupsState();
-        }
+        showEmptyGroupsState();
         return;
       }
 
@@ -1441,7 +1613,14 @@
         const label = document.createElement('label');
         label.htmlFor = `group-${group.prefix}`;
         label.className = 'checkbox-label';
-        label.innerHTML = `${group.prefix}/ <span class="checkbox-meta">(${group.count} variables)</span>`;
+        
+        if (group.isIndividual) {
+          // Для индивидуальных переменных показываем просто имя
+          label.innerHTML = `${group.prefix} <span class="checkbox-meta">(variable)</span>`;
+        } else {
+          // Для групп показываем с "/" и количеством
+          label.innerHTML = `${group.prefix}/ <span class="checkbox-meta">(${group.count} variables)</span>`;
+        }
         
         // Улучшенная обработка кликов на всей строке для групп
         function handleGroupRowClick(e) {
@@ -1471,7 +1650,9 @@
             if (!selectedGroups.find(g => g.prefix === group.prefix)) {
               selectedGroups.push({
                 prefix: group.prefix,
-                count: group.count
+                count: group.count,
+                isIndividual: group.isIndividual,
+                variableName: group.variableName
               });
             }
           } else {
@@ -1490,6 +1671,30 @@
       setupSelectAllGroups();
     }
     
+    function updateSelectAllModesState() {
+      const container = document.getElementById('modes-container');
+      const selectAllCb = document.getElementById('select-all-modes');
+      
+      if (!selectAllCb) {
+        console.warn('select-all-modes element not found');
+        return;
+      }
+      
+      const allModeCbs = container.querySelectorAll('input[type="checkbox"]');
+      const checkedModeCbs = container.querySelectorAll('input[type="checkbox"]:checked');
+      
+      if (checkedModeCbs.length === 0) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+      } else if (checkedModeCbs.length === allModeCbs.length) {
+        selectAllCb.checked = true;
+        selectAllCb.indeterminate = false;
+      } else {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = true;
+      }
+    }
+
     function updateSelectAllGroupsState() {
       const container = document.getElementById('groups-container');
       const selectAllCb = document.getElementById('select-all-groups');
@@ -1559,10 +1764,8 @@
     }
 
     // Button handlers
-    document.getElementById('cancel').addEventListener('click', function() {
-      parent.postMessage({ 
-        pluginMessage: { type: 'cancel' } 
-      }, '*');
+    document.getElementById('refresh').addEventListener('click', function() {
+      refreshPlugin();
     });
 
     document.getElementById('create').addEventListener('click', function() {
@@ -1672,6 +1875,13 @@
         document.getElementById('loading').style.display = 'none';
         document.getElementById('form').style.display = 'block';
         
+        // Show footer with buttons when form is displayed
+        const actionsElement = document.querySelector('.actions');
+        if (actionsElement) {
+          actionsElement.classList.add('visible');
+          console.log('Footer shown with form'); // Debug log
+        }
+        
         const menu = document.getElementById('collection-menu');
         menu.innerHTML = '';
         
@@ -1694,6 +1904,9 @@
         if (window.resetDropdownFocus) {
           window.resetDropdownFocus();
         }
+        
+        // Восстанавливаем сохранённое состояние после загрузки коллекций
+        restoreState();
       }
       
       if (msg.type === 'groups-loaded') {
@@ -1701,6 +1914,9 @@
         populateGroups(msg.groups, msg.totalVariables);
         showSection('groups-section');
         updateCreateButton();
+        
+        // Восстанавливаем выбранные темы и группы после загрузки групп
+        restoreSelections();
       }
       
       if (msg.type === 'error') {
