@@ -432,6 +432,108 @@
     }
     
     /**
+     * Theme Selector - селектор темы для таблицы
+     */
+    .theme-selector {
+      display: flex;
+      gap: var(--space-lg);
+      padding: var(--space-sm);
+      background: var(--color-bg-secondary);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+    }
+    
+    .theme-option {
+      flex: 1;
+      padding: var(--space-md);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 2px solid transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+    
+    .theme-option:hover {
+      background: var(--color-bg-primary);
+      border-color: var(--color-border-focus);
+    }
+    
+    .theme-option.active {
+      background: var(--color-bg-primary);
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 1px var(--color-accent);
+    }
+    
+    .theme-preview {
+      width: 80px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 1px solid var(--color-border-subtle);
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .theme-preview-light {
+      background: #ffffff;
+    }
+    
+    .theme-preview-dark {
+      background: #1a1a1b;
+    }
+    
+    .theme-header {
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 500;
+      border-bottom: 1px solid;
+    }
+    
+    .theme-preview-light .theme-header {
+      background: #f8f9fa;
+      color: #495057;
+      border-color: #dee2e6;
+    }
+    
+    .theme-preview-dark .theme-header {
+      background: #1d1e1f;
+      color: #9aa1ad;
+      border-color: #a3abbb;
+    }
+    
+    .theme-row {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #6c757d;
+    }
+    
+    .theme-preview-light .theme-row {
+      background: #ffffff;
+      color: #495057;
+    }
+    
+    .theme-preview-dark .theme-row {
+      background: #141415;
+      color: #9aa1ad;
+    }
+    
+    .theme-label {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      text-align: center;
+    }
+    
+    /**
      * Кастомный Dropdown - полностью контролируемый компонент
      */
     .dropdown {
@@ -845,6 +947,26 @@
       
       <div id="form" style="display: none;">
         <div class="form-section">
+          <h3 class="section-title">Table Theme</h3>
+          <div class="theme-selector">
+            <div class="theme-option" data-theme="light">
+              <div class="theme-preview theme-preview-light">
+                <div class="theme-header">Variant</div>
+                <div class="theme-row">Variant</div>
+              </div>
+              <div class="theme-label">Light</div>
+            </div>
+            <div class="theme-option active" data-theme="dark">
+              <div class="theme-preview theme-preview-dark">
+                <div class="theme-header">Variant</div>
+                <div class="theme-row">Variant</div>
+              </div>
+              <div class="theme-label">Dark</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-section">
           <h3 class="section-title">Collection</h3>
           <div class="dropdown">
             <button type="button" id="collection-trigger" class="dropdown-trigger">
@@ -917,6 +1039,7 @@
     let availableGroups = []; // Доступные группы переменных
     let selectedGroups = []; // Выбранные группы
     let dropdownOpen = false; // Состояние выпадающего меню
+    let selectedTableTheme = 'dark'; // Выбранная тема для таблицы (по умолчанию темная)
 
     /**
      * Инициализация приложения
@@ -927,6 +1050,7 @@
       loadCollections();
       setupDropdown();
       setupKeyboardShortcuts();
+      setupThemeSelector();
     };
 
     /**
@@ -964,6 +1088,29 @@
       console.log('Help link clicked:', event.target.href);
     }
 
+    /**
+     * Настройка селектора темы таблицы
+     * Устанавливает обработчики событий для выбора темы
+     */
+    function setupThemeSelector() {
+      const themeOptions = document.querySelectorAll('.theme-option');
+      
+      themeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          // Убираем активный класс у всех опций
+          themeOptions.forEach(opt => opt.classList.remove('active'));
+          
+          // Добавляем активный класс к выбранной опции
+          this.classList.add('active');
+          
+          // Сохраняем выбранную тему
+          selectedTableTheme = this.dataset.theme;
+          
+          console.log('Selected table theme:', selectedTableTheme);
+        });
+      });
+    }
+
         /**
      * Обновление плагина - сохраняет выбранные данные пользователя
      */
@@ -989,6 +1136,26 @@
           </div>
           
           <div id="form" style="display: none;">
+            <div class="form-section">
+              <h3 class="section-title">Table Theme</h3>
+              <div class="theme-selector">
+                <div class="theme-option" data-theme="light">
+                  <div class="theme-preview theme-preview-light">
+                    <div class="theme-header">Variant</div>
+                    <div class="theme-row">Variant</div>
+                  </div>
+                  <div class="theme-label">Light</div>
+                </div>
+                <div class="theme-option active" data-theme="dark">
+                  <div class="theme-preview theme-preview-dark">
+                    <div class="theme-header">Variant</div>
+                    <div class="theme-row">Variant</div>
+                  </div>
+                  <div class="theme-label">Dark</div>
+                </div>
+              </div>
+            </div>
+            
             <div class="form-section">
               <h3 class="section-title">Collection</h3>
               <div class="dropdown">
@@ -1060,6 +1227,7 @@
       
       // Переустанавливаем обработчики
       setupDropdown();
+      setupThemeSelector();
       
       // Перезагружаем коллекции
       loadCollections();
@@ -1805,7 +1973,8 @@
         collectionId: selectedCollection.id,
         collectionName: selectedCollection.name,
         modes: selectedModes,
-        groups: selectedGroups
+        groups: selectedGroups,
+        tableTheme: selectedTableTheme
       }); // Debug log
       
       // Скрываем всю форму и показываем только loading
@@ -1850,7 +2019,8 @@
           collectionId: selectedCollection.id,
           collectionName: selectedCollection.name,
           modes: selectedModes,
-          groups: selectedGroups
+          groups: selectedGroups,
+          tableTheme: selectedTableTheme
         } 
       }, '*');
     });

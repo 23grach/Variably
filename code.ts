@@ -138,7 +138,7 @@ const TABLE_CONFIG: StrictTableConfig = {
   spacing: {
     section: 24,
     group: 16,
-    cell: 1,
+    cell: 0,
     item: 12
   },
   sizes: {
@@ -177,6 +177,37 @@ const TABLE_COLORS = {
     stroke: { r: 179/255, g: 182/255, b: 189/255 }
   }
 } as const;
+
+/**
+ * Цветовая схема для светлой темы
+ */
+const TABLE_COLORS_LIGHT = {
+  group: {
+    stroke: { r: 222/255, g: 226/255, b: 230/255 },
+    background: { r: 222/255, g: 226/255, b: 230/255 }
+  },
+  header: {
+    background: { r: 248/255, g: 249/255, b: 250/255 }
+  },
+  dataRow: {
+    background: { r: 255/255, g: 255/255, b: 255/255 }
+  },
+  text: {
+    primary: { r: 73/255, g: 80/255, b: 87/255 }
+  },
+  colorCircle: {
+    stroke: { r: 173/255, g: 181/255, b: 189/255 }
+  }
+} as const;
+
+/**
+ * Возвращает цветовую схему в зависимости от выбранной темы
+ * @param theme Тема таблицы ('light' или 'dark')
+ * @returns Объект с цветовой схемой
+ */
+function getTableColors(theme: string) {
+  return theme === 'light' ? TABLE_COLORS_LIGHT : TABLE_COLORS;
+}
 
 /**
  * Конфигурация шрифтов
@@ -303,15 +334,17 @@ async function loadFontWithFallback(type: 'primary' | 'secondary' | 'header' | '
 /**
  * Создает конфигурацию стилей для групп переменных
  * Определяет внешний вид контейнеров групп в таблице
+ * @param theme Тема таблицы ('light' или 'dark')
  * @returns Объект конфигурации с настройками границ, заливки и скругления
  */
-function createGroupStyles(): GroupStyleConfig {
+function createGroupStyles(theme: string = 'dark'): GroupStyleConfig {
+  const colors = getTableColors(theme);
   return {
     cornerRadius: TABLE_CONFIG.radius.group,
-    strokeColor: TABLE_COLORS.group.stroke,
+    strokeColor: colors.group.stroke,
     strokeOpacity: 0.12,
     strokeWeight: 1,
-    fillColor: TABLE_COLORS.group.background,
+    fillColor: colors.group.background,
     fillOpacity: 0.03
   };
 }
@@ -375,19 +408,22 @@ const createBaseCellMemoized = (() => {
  * Создает множество текстовых элементов в пакетном режиме для оптимизации
  * Предзагружает все необходимые шрифты перед созданием элементов
  * @param texts Массив объектов с текстом и типом шрифта
+ * @param tableTheme Тема таблицы для определения цветов
  * @returns Промис с массивом созданных текстовых элементов
  */
-async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'primary' | 'secondary' | 'header' }>): Promise<TextNode[]> {
+async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'primary' | 'secondary' | 'header' }>, tableTheme: string = 'dark'): Promise<TextNode[]> {
   // Предзагружаем все необходимые шрифты
   const fontTypes = [...new Set(texts.map(t => t.fontType || 'primary'))];
   await Promise.all(fontTypes.map(type => loadFontWithFallback(type)));
+  
+  const colors = getTableColors(tableTheme);
   
   return Promise.all(texts.map(async ({ text, fontType = 'primary' }) => {
     const textNode = figma.createText();
     textNode.fontName = await loadFontWithFallback(fontType);
     textNode.characters = text;
     textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.BODY;
-    textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
+    textNode.fills = [createSolidFill(colors.text.primary)];
     return textNode;
   }));
 }
@@ -397,7 +433,7 @@ async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'pri
  * Маршрутизирует команды UI на соответствующие функции плагина
  * Обеспечивает обработку ошибок и логирование операций
  */
-figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collectionName?: string; modes?: ModeInfo[]; groups?: GroupInfo[] }) => {
+figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collectionName?: string; modes?: ModeInfo[]; groups?: GroupInfo[]; tableTheme?: string }) => {
   console.log('Message received:', msg.type, msg); // Debug log
   try {
     switch (msg.type) {
@@ -416,10 +452,11 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
           collectionId: msg.collectionId,
           collectionName: msg.collectionName,
           modes: msg.modes,
-          groups: msg.groups
+          groups: msg.groups,
+          tableTheme: msg.tableTheme
         });
         if (msg.collectionId && msg.collectionName && msg.modes && msg.groups) {
-          await createVariablesTable(msg.collectionId, msg.collectionName, msg.modes, msg.groups);
+          await createVariablesTable(msg.collectionId, msg.collectionName, msg.modes, msg.groups, msg.tableTheme || 'dark');
         } else {
           console.error('Missing required parameters for table creation');
           figma.ui.postMessage({
@@ -674,7 +711,7 @@ function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableDa
  * @param modes Массив режимов/тем коллекции
  * @param groups Выбранные пользователем группы переменных
  */
-async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[]): Promise<void> {
+async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[], tableTheme: string): Promise<void> {
   try {
     // 1. Получаем и фильтруем переменные
     const filteredVariables = await getFilteredVariables(collectionId, groups);
@@ -688,7 +725,7 @@ async function createVariablesTable(collectionId: string, collectionName: string
     const sortedVariablesData = sortVariablesByPrefixAndName(variablesData);
     
     // 4. Создаем таблицу
-    await createTableFrame(sortedVariablesData, modes);
+    await createTableFrame(sortedVariablesData, modes, tableTheme);
     
     // Показываем успешное уведомление и закрываем плагин
     figma.notify('✅ Variables table created successfully!', { timeout: 3000 });
@@ -925,9 +962,10 @@ function groupVariablesByPrefix(variablesData: VariableData[]): Map<string, Vari
 /**
  * Создает основную таблицу с колонками Design Token и Dev Token
  * @param groupedVariables - Группированные переменные по префиксам
+ * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns FrameNode основной таблицы
  */
-async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>): Promise<FrameNode> {
+async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>, tableTheme: string): Promise<FrameNode> {
   const mainTableFrame = figma.createFrame();
   mainTableFrame.name = 'Main Table';
   mainTableFrame.layoutMode = 'VERTICAL';
@@ -939,7 +977,7 @@ async function createMainVariablesTable(groupedVariables: Map<string, VariableDa
   
   // Создаем группы с заголовками
   for (const [prefix, variables] of groupedVariables) {
-    const groupFrame = await createVariableGroup(prefix, variables, 'main');
+    const groupFrame = await createVariableGroup(prefix, variables, 'main', undefined, tableTheme);
     mainTableFrame.appendChild(groupFrame);
   }
   
@@ -950,9 +988,10 @@ async function createMainVariablesTable(groupedVariables: Map<string, VariableDa
  * Создает таблицы для каждой темы с колонкой значений
  * @param groupedVariables - Группированные переменные по префиксам
  * @param modes - Массив режимов/тем
+ * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns Массив FrameNode для каждой темы
  */
-async function createThemeVariablesTables(groupedVariables: Map<string, VariableData[]>, modes: ModeInfo[]): Promise<FrameNode[]> {
+async function createThemeVariablesTables(groupedVariables: Map<string, VariableData[]>, modes: ModeInfo[], tableTheme: string): Promise<FrameNode[]> {
   const themeFrames: FrameNode[] = [];
   
   for (const mode of modes) {
@@ -967,7 +1006,7 @@ async function createThemeVariablesTables(groupedVariables: Map<string, Variable
     
     // Создаем группы для каждого префикса в рамках темы
     for (const [prefix, variables] of groupedVariables) {
-      const themeGroupFrame = await createVariableGroup(prefix, variables, 'theme', mode);
+      const themeGroupFrame = await createVariableGroup(prefix, variables, 'theme', mode, tableTheme);
       themeFrame.appendChild(themeGroupFrame);
     }
     
@@ -983,9 +1022,10 @@ async function createThemeVariablesTables(groupedVariables: Map<string, Variable
  * @param variables - Переменные группы
  * @param type - Тип таблицы: 'main' или 'theme'
  * @param mode - Информация о режиме (только для типа 'theme')
+ * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns FrameNode группы переменных
  */
-async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo): Promise<FrameNode> {
+async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo, tableTheme: string = 'dark'): Promise<FrameNode> {
   // Создаем фрейм для группы
   const groupFrame = figma.createFrame();
   groupFrame.name = type === 'main' ? `Group: ${prefix}` : `${mode!.name} - ${prefix}`;
@@ -999,20 +1039,20 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
   groupFrame.paddingRight = 0;
   
   // Стили для группы
-  applyGroupStyles(groupFrame, createGroupStyles());
+  applyGroupStyles(groupFrame, createGroupStyles(tableTheme));
   
   // Создаем заголовок
   const headerRow = type === 'main' 
-    ? await createMainHeaderRow() 
-    : await createThemeHeaderRow(mode!.name);
+    ? await createMainHeaderRow(tableTheme) 
+    : await createThemeHeaderRow(mode!.name, tableTheme);
   groupFrame.appendChild(headerRow);
   
   // Создаем строки данных
   for (let i = 0; i < variables.length; i++) {
     try {
       const dataRow = type === 'main' 
-        ? await createMainDataRow(variables[i], i === variables.length - 1)
-        : await createThemeDataRow(variables[i], mode!, i === variables.length - 1);
+        ? await createMainDataRow(variables[i], i === variables.length - 1, tableTheme)
+        : await createThemeDataRow(variables[i], mode!, i === variables.length - 1, tableTheme);
       groupFrame.appendChild(dataRow);
     } catch (error) {
       // Пропускаем проблемные строки, но продолжаем создание таблицы
@@ -1028,14 +1068,15 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
  * @param variable - Данные переменной
  * @param mode - Информация о режиме
  * @param isLast - Является ли строка последней в группе
+ * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns FrameNode строки данных
  */
-async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast: boolean): Promise<FrameNode> {
+async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast: boolean, tableTheme: string): Promise<FrameNode> {
   const value = variable.values[mode.modeId];
   const colorValue = variable.colorValues?.[mode.modeId];
   const aliasVariable = variable.aliasVariables?.[mode.modeId];
   
-  const valueCell = await createValueCell(value, variable.variableType, TABLE_CONFIG.sizes.columnWidth.value, colorValue, aliasVariable);
+  const valueCell = await createValueCell(value, variable.variableType, TABLE_CONFIG.sizes.columnWidth.value, colorValue, aliasVariable, tableTheme);
   valueCell.name = `${variable.name} - ${mode.name}`;
   
   // Оборачиваем ячейку в контейнер для правильного отступа
@@ -1045,7 +1086,7 @@ async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast
   valueContainer.primaryAxisSizingMode = 'AUTO';
   valueContainer.counterAxisSizingMode = 'AUTO';
   valueContainer.itemSpacing = 0;
-  valueContainer.fills = [createSolidFill(TABLE_COLORS.dataRow.background)];
+  valueContainer.fills = [createSolidFill(getTableColors(tableTheme).dataRow.background)];
   
   // Закругляем углы для последней строки
   if (isLast) {
@@ -1084,7 +1125,7 @@ function positionTableInViewport(tableFrame: FrameNode): void {
  * @param variablesData - Массив данных переменных
  * @param modes - Массив режимов/тем
  */
-async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]): Promise<void> {
+async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string): Promise<void> {
   // Создаем основной фрейм для таблицы
   const tableFrame = figma.createFrame();
   tableFrame.name = 'Variables Table';
@@ -1099,11 +1140,11 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   const groupedVariables = groupVariablesByPrefix(variablesData);
   
   // 2. Создаем основную таблицу с переменными
-  const mainTableFrame = await createMainVariablesTable(groupedVariables);
+  const mainTableFrame = await createMainVariablesTable(groupedVariables, tableTheme);
   tableFrame.appendChild(mainTableFrame);
   
   // 3. Создаем группы для каждой темы
-  const themeFrames = await createThemeVariablesTables(groupedVariables, modes);
+  const themeFrames = await createThemeVariablesTables(groupedVariables, modes, tableTheme);
   themeFrames.forEach(themeFrame => {
     tableFrame.appendChild(themeFrame);
   });
@@ -1116,7 +1157,7 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
  * Создает строку заголовка основной таблицы (только Design Token и Dev Token)
  * @returns FrameNode с ячейками заголовков
  */
-async function createMainHeaderRow(): Promise<FrameNode> {
+async function createMainHeaderRow(tableTheme: string): Promise<FrameNode> {
   const headerRow = figma.createFrame();
   headerRow.name = 'Main Header Row';
   headerRow.layoutMode = 'HORIZONTAL';
@@ -1125,7 +1166,7 @@ async function createMainHeaderRow(): Promise<FrameNode> {
   headerRow.itemSpacing = 0;
   
   // Стили заголовка
-  headerRow.fills = [createSolidFill(TABLE_COLORS.header.background)];
+  headerRow.fills = [createSolidFill(getTableColors(tableTheme).header.background)];
   
   // Закругляем только верхние углы заголовка
   headerRow.topLeftRadius = TABLE_CONFIG.radius.header;
@@ -1134,11 +1175,11 @@ async function createMainHeaderRow(): Promise<FrameNode> {
   headerRow.bottomRightRadius = 0;
   
   // Design Token колонка
-  const designTokenHeader = await createHeaderCell('Design Token', TABLE_CONFIG.sizes.columnWidth.designToken);
+  const designTokenHeader = await createHeaderCell('Design Token', TABLE_CONFIG.sizes.columnWidth.designToken, tableTheme);
   headerRow.appendChild(designTokenHeader);
   
   // Dev Token колонка
-  const devTokenHeader = await createHeaderCell('Dev Token', TABLE_CONFIG.sizes.columnWidth.devToken);
+  const devTokenHeader = await createHeaderCell('Dev Token', TABLE_CONFIG.sizes.columnWidth.devToken, tableTheme);
   headerRow.appendChild(devTokenHeader);
   
   return headerRow;
@@ -1149,7 +1190,7 @@ async function createMainHeaderRow(): Promise<FrameNode> {
  * @param themeName - Название темы
  * @returns FrameNode с заголовком темы
  */
-async function createThemeHeaderRow(themeName: string): Promise<FrameNode> {
+async function createThemeHeaderRow(themeName: string, tableTheme: string): Promise<FrameNode> {
   const headerRow = figma.createFrame();
   headerRow.name = `Theme Header: ${themeName}`;
   headerRow.layoutMode = 'HORIZONTAL';
@@ -1158,7 +1199,7 @@ async function createThemeHeaderRow(themeName: string): Promise<FrameNode> {
   headerRow.itemSpacing = 0;
   
   // Стили заголовка
-  headerRow.fills = [createSolidFill(TABLE_COLORS.header.background)];
+  headerRow.fills = [createSolidFill(getTableColors(tableTheme).header.background)];
   
   // Закругляем только верхние углы заголовка
   headerRow.topLeftRadius = TABLE_CONFIG.radius.header;
@@ -1167,7 +1208,7 @@ async function createThemeHeaderRow(themeName: string): Promise<FrameNode> {
   headerRow.bottomRightRadius = 0;
   
   // Создаем заголовок темы
-  const themeHeader = await createHeaderCell(themeName, TABLE_CONFIG.sizes.columnWidth.value);
+  const themeHeader = await createHeaderCell(themeName, TABLE_CONFIG.sizes.columnWidth.value, tableTheme);
   headerRow.appendChild(themeHeader);
   
   return headerRow;
@@ -1179,7 +1220,7 @@ async function createThemeHeaderRow(themeName: string): Promise<FrameNode> {
  * @param isLast - Является ли строка последней в группе
  * @returns FrameNode со строкой данных
  */
-async function createMainDataRow(variableData: VariableData, isLast: boolean): Promise<FrameNode> {
+async function createMainDataRow(variableData: VariableData, isLast: boolean, tableTheme: string): Promise<FrameNode> {
   const dataRow = figma.createFrame();
   dataRow.name = `Main Data Row: ${variableData.name}`;
   dataRow.layoutMode = 'HORIZONTAL';
@@ -1188,7 +1229,7 @@ async function createMainDataRow(variableData: VariableData, isLast: boolean): P
   dataRow.itemSpacing = 0;
   
   // Стили строки данных
-  dataRow.fills = [createSolidFill(TABLE_COLORS.dataRow.background)];
+  dataRow.fills = [createSolidFill(getTableColors(tableTheme).dataRow.background)];
   
   // Закругляем только нижние углы для последней строки
   if (isLast) {
@@ -1202,11 +1243,11 @@ async function createMainDataRow(variableData: VariableData, isLast: boolean): P
   }
   
   // Design Token ячейка
-  const designTokenCell = await createDataCell(formatVariableName(variableData.name), TABLE_CONFIG.sizes.columnWidth.designToken, 'design-token');
+  const designTokenCell = await createDataCell(formatVariableName(variableData.name), TABLE_CONFIG.sizes.columnWidth.designToken, 'design-token', tableTheme);
   dataRow.appendChild(designTokenCell);
   
   // Dev Token ячейка
-  const devTokenCell = await createDataCell(variableData.devToken, TABLE_CONFIG.sizes.columnWidth.devToken, 'dev-token');
+  const devTokenCell = await createDataCell(variableData.devToken, TABLE_CONFIG.sizes.columnWidth.devToken, 'dev-token', tableTheme);
   dataRow.appendChild(devTokenCell);
   
   return dataRow;
@@ -1219,7 +1260,7 @@ async function createMainDataRow(variableData: VariableData, isLast: boolean): P
  * @param type - Тип ячейки (design-token или dev-token)
  * @returns FrameNode с ячейкой данных
  */
-async function createDataCell(text: string, width: number, type: 'design-token' | 'dev-token'): Promise<FrameNode> {
+async function createDataCell(text: string, width: number, type: 'design-token' | 'dev-token', tableTheme: string = 'dark'): Promise<FrameNode> {
   const cell = createBaseCellMemoized(`Data Cell: ${type}`, width, 'VERTICAL');
   
   // Настраиваем выравнивание контента
@@ -1227,7 +1268,7 @@ async function createDataCell(text: string, width: number, type: 'design-token' 
   cell.counterAxisAlignItems = 'MIN';
   
   // Создаем текст
-  const textNodes = await createTextNodesBatch([{ text, fontType: type === 'dev-token' ? 'primary' : 'secondary' }]);
+  const textNodes = await createTextNodesBatch([{ text, fontType: type === 'dev-token' ? 'primary' : 'secondary' }], tableTheme);
   const textNode = textNodes[0];
   textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.HEADER;
   textNode.textAlignHorizontal = 'LEFT';
@@ -1280,10 +1321,13 @@ function determineColorForIndicator(
 function createColorIndicator(
   color: { r: number; g: number; b: number; a?: number }, 
   type: VariableResolvedDataType, 
-  aliasVariable?: Variable | null
+  aliasVariable?: Variable | null,
+  tableTheme: string = 'dark'
 ): EllipseNode {
   const colorCircle = figma.createEllipse();
   colorCircle.resize(TABLE_CONFIG.sizes.colorCircle, TABLE_CONFIG.sizes.colorCircle);
+  
+  const colors = getTableColors(tableTheme);
   
   // Проверяем, есть ли у нас алиас переменная для применения
   if (aliasVariable && type === 'COLOR') {
@@ -1312,7 +1356,7 @@ function createColorIndicator(
     )];
   }
   
-  colorCircle.strokes = [createSolidFill(TABLE_COLORS.colorCircle.stroke, 0.12)];
+  colorCircle.strokes = [createSolidFill(colors.colorCircle.stroke, 0.12)];
   colorCircle.strokeWeight = 1;
   
   return colorCircle;
@@ -1351,14 +1395,17 @@ function formatValueForDisplay(value: string | number | boolean | { r: number; g
  * Создает текстовый элемент с единообразным стилем для значений переменных
  * Применяет основной шрифт, размер и цвет согласно дизайн-системе
  * @param displayValue Отформатированное значение для отображения
+ * @param tableTheme Тема таблицы для определения цветов
  * @returns Промис с настроенным текстовым элементом
  */
-async function createValueText(displayValue: string): Promise<TextNode> {
+async function createValueText(displayValue: string, tableTheme: string = 'dark'): Promise<TextNode> {
   const textNode = figma.createText();
   textNode.fontName = await loadFontWithFallback('primary');
   textNode.characters = displayValue;
   textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.BODY;
-  textNode.fills = [createSolidFill(TABLE_COLORS.text.primary)];
+  
+  const colors = getTableColors(tableTheme);
+  textNode.fills = [createSolidFill(colors.text.primary)];
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
   
@@ -1374,6 +1421,7 @@ async function createValueText(displayValue: string): Promise<TextNode> {
  * @param width Ширина ячейки в пикселях
  * @param colorValue Разрешенное цветовое значение (для цветовых переменных)
  * @param aliasVariable Переменная-алиас для привязки цвета (опционально)
+ * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns Промис с настроенной ячейкой значения
  */
 async function createValueCell(
@@ -1381,7 +1429,8 @@ async function createValueCell(
   type: VariableResolvedDataType, 
   width: number, 
   colorValue?: { r: number; g: number; b: number; a?: number } | null, 
-  aliasVariable?: Variable | null
+  aliasVariable?: Variable | null,
+  tableTheme: string = 'dark'
 ): Promise<FrameNode> {
   const cell = createBaseCellMemoized('Value Cell', width, 'HORIZONTAL');
   
@@ -1394,13 +1443,13 @@ async function createValueCell(
   
   // Создаем цветной кружок для цветовых переменных
   if (colorForCircle) {
-    const colorCircle = createColorIndicator(colorForCircle, type, aliasVariable);
+    const colorCircle = createColorIndicator(colorForCircle, type, aliasVariable, tableTheme);
     cell.appendChild(colorCircle);
   }
   
   // Форматируем и создаем текст значения
   const displayValue = formatValueForDisplay(value);
-  const textNode = await createValueText(displayValue);
+  const textNode = await createValueText(displayValue, tableTheme);
   cell.appendChild(textNode);
   
   return cell;
@@ -1411,9 +1460,10 @@ async function createValueCell(
  * Применяет специальный шрифт заголовка и выравнивание по левому краю
  * @param text Текст заголовка для отображения
  * @param width Ширина ячейки в пикселях
+ * @param tableTheme Тема таблицы для определения цветов
  * @returns Промис с настроенной ячейкой заголовка
  */
-async function createHeaderCell(text: string, width: number): Promise<FrameNode> {
+async function createHeaderCell(text: string, width: number, tableTheme: string = 'dark'): Promise<FrameNode> {
   const cell = createBaseCellMemoized(`Header: ${text}`, width, 'VERTICAL');
   
   // Настраиваем выравнивание контента
@@ -1421,7 +1471,7 @@ async function createHeaderCell(text: string, width: number): Promise<FrameNode>
   cell.counterAxisAlignItems = 'MIN';
   
   // Создаем текст
-  const textNodes = await createTextNodesBatch([{ text, fontType: 'header' }]);
+  const textNodes = await createTextNodesBatch([{ text, fontType: 'header' }], tableTheme);
   const textNode = textNodes[0];
   textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.HEADER;
   textNode.textAlignHorizontal = 'LEFT';
