@@ -1,6 +1,6 @@
 {
   "name": "Variably",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Variably is a Figma plugin that helps you manage your variables in a clean, structured table",
   "main": "code.js",
   "scripts": {

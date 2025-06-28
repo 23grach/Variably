@@ -930,6 +930,96 @@
       color: var(--color-success);
       border: 1px solid rgba(25, 135, 84, 0.2);
     }
+
+    /**
+     * Modern Toggle Switch - минималистичный переключатель
+     */
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-md) 0;
+      margin: var(--space-md) 0 0 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      user-select: none;
+      transition: all var(--transition-fast);
+    }
+
+    .toggle-label {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      user-select: none;
+      line-height: 1.4;
+      flex: 1;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .toggle-input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+      z-index: 1;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--color-border);
+      border-radius: 24px;
+      transition: all var(--transition-base);
+      border: 2px solid transparent;
+      z-index: 2; /* Slider поверх input для обработки кликов */
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      top: 2px;
+      background: white;
+      border-radius: 50%;
+      transition: all var(--transition-base);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .toggle-input:checked + .toggle-slider {
+      background: var(--color-accent);
+    }
+
+    .toggle-input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .toggle-input:focus + .toggle-slider {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+    }
+
+    .toggle-switch:hover .toggle-slider {
+      box-shadow: 0 0 0 8px rgba(0, 102, 255, 0.04);
+    }
+
+    .toggle-input:disabled + .toggle-slider {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
     
 
   </style>
@@ -959,6 +1049,14 @@
                 <div class="theme-row">Variable</div>
               </div>
               <div class="theme-label">Dark</div>
+            </div>
+          </div>
+          
+          <div class="toggle-item">
+            <label for="show-dev-token" class="toggle-label">Show Dev Token</label>
+            <div class="toggle-switch">
+              <input type="checkbox" id="show-dev-token" class="toggle-input" checked>
+              <span class="toggle-slider"></span>
             </div>
           </div>
         </div>
@@ -1037,6 +1135,7 @@
     let selectedGroups = []; // Выбранные группы
     let dropdownOpen = false; // Состояние выпадающего меню
     let selectedTableTheme = 'dark'; // Выбранная тема для таблицы (по умолчанию темная)
+    let showDevToken = true; // Показывать ли Dev Token колонку (по умолчанию включено)
 
     /**
      * Инициализация приложения
@@ -1048,6 +1147,7 @@
       setupDropdown();
       setupKeyboardShortcuts();
       setupThemeSelector();
+      setupDevTokenToggle();
     };
 
     /**
@@ -1108,6 +1208,40 @@
       });
     }
 
+    /**
+     * Настройка переключателя отображения Dev Token
+     * Управляет видимостью колонки Dev Token в таблице
+     */
+    function setupDevTokenToggle() {
+      const showDevTokenToggle = document.getElementById('show-dev-token');
+      
+      if (showDevTokenToggle) {
+        // Обработчик изменения состояния
+        showDevTokenToggle.addEventListener('change', function() {
+          showDevToken = this.checked;
+          console.log('Show Dev Token:', showDevToken);
+        });
+        
+        // Находим toggle-switch контейнер
+        const toggleSwitch = showDevTokenToggle.parentElement;
+        
+        // Обработчик клика по toggle switch контейнеру и slider
+        if (toggleSwitch && toggleSwitch.classList.contains('toggle-switch')) {
+          toggleSwitch.addEventListener('click', function(e) {
+            // Предотвращаем двойное срабатывание если кликнули прямо на input
+            if (e.target === showDevTokenToggle) return;
+            
+            // Программно переключаем input
+            showDevTokenToggle.checked = !showDevTokenToggle.checked;
+            
+            // Вызываем событие change
+            const changeEvent = new Event('change', { bubbles: true });
+            showDevTokenToggle.dispatchEvent(changeEvent);
+          });
+        }
+      }
+    }
+
         /**
      * Обновление плагина - сохраняет выбранные данные пользователя
      */
@@ -1149,6 +1283,14 @@
                     <div class="theme-row">Variant</div>
                   </div>
                   <div class="theme-label">Dark</div>
+                </div>
+              </div>
+              
+              <div class="toggle-item">
+                <label for="show-dev-token" class="toggle-label">Show Dev Token</label>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="show-dev-token" class="toggle-input" checked>
+                  <span class="toggle-slider"></span>
                 </div>
               </div>
             </div>
@@ -1225,6 +1367,7 @@
       // Переустанавливаем обработчики
       setupDropdown();
       setupThemeSelector();
+      setupDevTokenToggle();
       
       // Перезагружаем коллекции
       loadCollections();
@@ -2017,7 +2160,8 @@
           collectionName: selectedCollection.name,
           modes: selectedModes,
           groups: selectedGroups,
-          tableTheme: selectedTableTheme
+          tableTheme: selectedTableTheme,
+          showDevToken: showDevToken
         } 
       }, '*');
     });

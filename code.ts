@@ -4,21 +4,6 @@
  * Этот плагин автоматически генерирует красивые таблицы из коллекций переменных Figma.
  * Поддерживает все типы переменных, множественные режимы/темы, группировку по префиксам
  * и интеллектуальное форматирование значений.
- * 
- * Основные возможности:
- * - Загрузка и фильтрация коллекций переменных
- * - Группировка переменных по префиксам
- * - Поддержка цветовых индикаторов для COLOR переменных
- * - Обработка алиасов и ссылок между переменными
- * - Генерация CSS custom properties
- * - Адаптивное форматирование для разных типов данных
- * 
- * Архитектура:
- * - Строгая типизация TypeScript
- * - Кэширование для оптимизации производительности
- * - Модульная структура с разделением ответственности
- * - Централизованная обработка ошибок
- * - Мемоизация часто используемых операций
  */
 
 figma.showUI(__html__, { width: 400, height: 700 });
@@ -145,9 +130,9 @@ const TABLE_CONFIG: StrictTableConfig = {
     cellHeight: 48,
     colorCircle: 20,
     columnWidth: {
-      designToken: 480,
-      devToken: 552,
-      value: 560
+      designToken: 440,
+      devToken: 480,
+      value: 480
     }
   },
   radius: {
@@ -342,7 +327,7 @@ function createGroupStyles(theme: string = 'dark'): GroupStyleConfig {
   return {
     cornerRadius: TABLE_CONFIG.radius.group,
     strokeColor: colors.group.stroke,
-    strokeOpacity: 0.12,
+    strokeOpacity: 0.5,
     strokeWeight: 1,
     fillColor: colors.group.background,
     fillOpacity: 0.03
@@ -447,16 +432,18 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
         }
         break;
       
-      case 'create-table':
+      case 'create-table': {
+        const createTableMsg = msg as typeof msg & { showDevToken?: boolean };
         console.log('Creating table with params:', {
-          collectionId: msg.collectionId,
-          collectionName: msg.collectionName,
-          modes: msg.modes,
-          groups: msg.groups,
-          tableTheme: msg.tableTheme
+          collectionId: createTableMsg.collectionId,
+          collectionName: createTableMsg.collectionName,
+          modes: createTableMsg.modes,
+          groups: createTableMsg.groups,
+          tableTheme: createTableMsg.tableTheme,
+          showDevToken: createTableMsg.showDevToken
         });
-        if (msg.collectionId && msg.collectionName && msg.modes && msg.groups) {
-          await createVariablesTable(msg.collectionId, msg.collectionName, msg.modes, msg.groups, msg.tableTheme || 'dark');
+        if (createTableMsg.collectionId && createTableMsg.collectionName && createTableMsg.modes && createTableMsg.groups) {
+          await createVariablesTable(createTableMsg.collectionId, createTableMsg.collectionName, createTableMsg.modes, createTableMsg.groups, createTableMsg.tableTheme || 'dark', createTableMsg.showDevToken !== false);
         } else {
           console.error('Missing required parameters for table creation');
           figma.ui.postMessage({
@@ -465,6 +452,7 @@ figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collecti
           });
         }
         break;
+      }
       
 
     }
@@ -711,7 +699,7 @@ function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableDa
  * @param modes Массив режимов/тем коллекции
  * @param groups Выбранные пользователем группы переменных
  */
-async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[], tableTheme: string): Promise<void> {
+async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[], tableTheme: string, showDevToken: boolean = true): Promise<void> {
   try {
     // 1. Получаем и фильтруем переменные
     const filteredVariables = await getFilteredVariables(collectionId, groups);
@@ -725,7 +713,7 @@ async function createVariablesTable(collectionId: string, collectionName: string
     const sortedVariablesData = sortVariablesByPrefixAndName(variablesData);
     
     // 4. Создаем таблицу
-    await createTableFrame(sortedVariablesData, modes, tableTheme);
+    await createTableFrame(sortedVariablesData, modes, tableTheme, showDevToken);
     
     // Показываем успешное уведомление и закрываем плагин
     figma.notify('✅ Variables table created successfully!', { timeout: 3000 });
@@ -965,7 +953,7 @@ function groupVariablesByPrefix(variablesData: VariableData[]): Map<string, Vari
  * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns FrameNode основной таблицы
  */
-async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>, tableTheme: string): Promise<FrameNode> {
+async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>, tableTheme: string, showDevToken: boolean = true): Promise<FrameNode> {
   const mainTableFrame = figma.createFrame();
   mainTableFrame.name = 'Main Table';
   mainTableFrame.layoutMode = 'VERTICAL';
@@ -977,7 +965,7 @@ async function createMainVariablesTable(groupedVariables: Map<string, VariableDa
   
   // Создаем группы с заголовками
   for (const [prefix, variables] of groupedVariables) {
-    const groupFrame = await createVariableGroup(prefix, variables, 'main', undefined, tableTheme);
+    const groupFrame = await createVariableGroup(prefix, variables, 'main', undefined, tableTheme, showDevToken);
     mainTableFrame.appendChild(groupFrame);
   }
   
@@ -1025,7 +1013,7 @@ async function createThemeVariablesTables(groupedVariables: Map<string, Variable
  * @param tableTheme - Тема таблицы ('light' или 'dark')
  * @returns FrameNode группы переменных
  */
-async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo, tableTheme: string = 'dark'): Promise<FrameNode> {
+async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo, tableTheme: string = 'dark', showDevToken: boolean = true): Promise<FrameNode> {
   // Создаем фрейм для группы
   const groupFrame = figma.createFrame();
   groupFrame.name = type === 'main' ? `Group: ${prefix}` : `${mode!.name} - ${prefix}`;
@@ -1043,7 +1031,7 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
   
   // Создаем заголовок
   const headerRow = type === 'main' 
-    ? await createMainHeaderRow(tableTheme) 
+    ? await createMainHeaderRow(tableTheme, showDevToken) 
     : await createThemeHeaderRow(mode!.name, tableTheme);
   groupFrame.appendChild(headerRow);
   
@@ -1051,7 +1039,7 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
   for (let i = 0; i < variables.length; i++) {
     try {
       const dataRow = type === 'main' 
-        ? await createMainDataRow(variables[i], i === variables.length - 1, tableTheme)
+        ? await createMainDataRow(variables[i], i === variables.length - 1, tableTheme, showDevToken)
         : await createThemeDataRow(variables[i], mode!, i === variables.length - 1, tableTheme);
       groupFrame.appendChild(dataRow);
     } catch (error) {
@@ -1125,7 +1113,7 @@ function positionTableInViewport(tableFrame: FrameNode): void {
  * @param variablesData - Массив данных переменных
  * @param modes - Массив режимов/тем
  */
-async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string): Promise<void> {
+async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true): Promise<void> {
   // Создаем основной фрейм для таблицы
   const tableFrame = figma.createFrame();
   tableFrame.name = 'Variables Table';
@@ -1140,7 +1128,7 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
   const groupedVariables = groupVariablesByPrefix(variablesData);
   
   // 2. Создаем основную таблицу с переменными
-  const mainTableFrame = await createMainVariablesTable(groupedVariables, tableTheme);
+  const mainTableFrame = await createMainVariablesTable(groupedVariables, tableTheme, showDevToken);
   tableFrame.appendChild(mainTableFrame);
   
   // 3. Создаем группы для каждой темы
@@ -1157,7 +1145,7 @@ async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[]
  * Создает строку заголовка основной таблицы (только Design Token и Dev Token)
  * @returns FrameNode с ячейками заголовков
  */
-async function createMainHeaderRow(tableTheme: string): Promise<FrameNode> {
+async function createMainHeaderRow(tableTheme: string, showDevToken: boolean = true): Promise<FrameNode> {
   const headerRow = figma.createFrame();
   headerRow.name = 'Main Header Row';
   headerRow.layoutMode = 'HORIZONTAL';
@@ -1178,9 +1166,11 @@ async function createMainHeaderRow(tableTheme: string): Promise<FrameNode> {
   const designTokenHeader = await createHeaderCell('Design Token', TABLE_CONFIG.sizes.columnWidth.designToken, tableTheme);
   headerRow.appendChild(designTokenHeader);
   
-  // Dev Token колонка
-  const devTokenHeader = await createHeaderCell('Dev Token', TABLE_CONFIG.sizes.columnWidth.devToken, tableTheme);
-  headerRow.appendChild(devTokenHeader);
+  // Dev Token колонка (только если showDevToken = true)
+  if (showDevToken) {
+    const devTokenHeader = await createHeaderCell('Dev Token', TABLE_CONFIG.sizes.columnWidth.devToken, tableTheme);
+    headerRow.appendChild(devTokenHeader);
+  }
   
   return headerRow;
 }
@@ -1220,7 +1210,7 @@ async function createThemeHeaderRow(themeName: string, tableTheme: string): Prom
  * @param isLast - Является ли строка последней в группе
  * @returns FrameNode со строкой данных
  */
-async function createMainDataRow(variableData: VariableData, isLast: boolean, tableTheme: string): Promise<FrameNode> {
+async function createMainDataRow(variableData: VariableData, isLast: boolean, tableTheme: string, showDevToken: boolean = true): Promise<FrameNode> {
   const dataRow = figma.createFrame();
   dataRow.name = `Main Data Row: ${variableData.name}`;
   dataRow.layoutMode = 'HORIZONTAL';
@@ -1246,9 +1236,11 @@ async function createMainDataRow(variableData: VariableData, isLast: boolean, ta
   const designTokenCell = await createDataCell(formatVariableName(variableData.name), TABLE_CONFIG.sizes.columnWidth.designToken, 'design-token', tableTheme);
   dataRow.appendChild(designTokenCell);
   
-  // Dev Token ячейка
-  const devTokenCell = await createDataCell(variableData.devToken, TABLE_CONFIG.sizes.columnWidth.devToken, 'dev-token', tableTheme);
-  dataRow.appendChild(devTokenCell);
+  // Dev Token ячейка (только если showDevToken = true)
+  if (showDevToken) {
+    const devTokenCell = await createDataCell(variableData.devToken, TABLE_CONFIG.sizes.columnWidth.devToken, 'dev-token', tableTheme);
+    dataRow.appendChild(devTokenCell);
+  }
   
   return dataRow;
 }
