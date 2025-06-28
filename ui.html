@@ -7,7 +7,7 @@
      * Централизованная система дизайна для консистентности и простоты поддержки
      */
     :root {
-      /* Цветовая палитра - семантические токены для лучшей читаемости */
+      /** Color palette - semantic tokens for better readability */
       --color-bg-primary: #ffffff;
       --color-bg-secondary: #f8f9fa;
       --color-bg-tertiary: #e9ecef;
@@ -25,7 +25,7 @@
       --color-warning: #ffc107;
       --color-error: #dc3545;
       
-      /* Система отступов - 8px grid для визуальной гармонии */
+      /** Spacing system - 8px grid for visual harmony */
       --space-xs: 4px;
       --space-sm: 8px;
       --space-md: 12px;
@@ -34,7 +34,7 @@
       --space-2xl: 24px;
       --space-3xl: 32px;
       
-      /* Типографика - системные шрифты для лучшей производительности */
+      /** Typography - system fonts for better performance */
       --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
       --font-size-xs: 11px;
       --font-size-sm: 12px;
@@ -44,17 +44,17 @@
       --font-weight-medium: 500;
       --font-weight-semibold: 600;
       
-      /* Радиусы скругления - прогрессивная шкала */
+      /** Border radius - progressive scale */
       --radius-sm: 6px;
       --radius-md: 8px;
       --radius-lg: 12px;
       
-      /* Тени - многослойная система глубины */
+      /** Shadows - multilayer depth system */
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
       --shadow-md: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
       --shadow-lg: 0 8px 16px 0 rgba(0, 0, 0, 0.15);
       
-      /* Анимации - естественные переходы с easing */
+      /** Animations - natural transitions with easing */
       --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
       --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -432,102 +432,64 @@
     }
     
     /**
-     * Theme Selector - селектор темы для таблицы
+     * Theme Selector - простой segmented control
      */
     .theme-selector {
+      width: 100%;
+      height: 44px;
       display: flex;
-      gap: var(--space-lg);
-      padding: var(--space-sm);
-      background: var(--color-bg-secondary);
-      border-radius: var(--radius-md);
+      overflow: hidden;
+      border-radius: var(--radius-lg);
       border: 1px solid var(--color-border);
+      background: var(--color-bg-secondary);
     }
     
     .theme-option {
       flex: 1;
-      padding: var(--space-md);
-      border-radius: var(--radius-sm);
+      height: 44px;
+      padding: 13px var(--space-lg);
       cursor: pointer;
       transition: all var(--transition-fast);
-      border: 2px solid transparent;
+      border: none;
+      background: transparent;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
-      gap: var(--space-sm);
+      font-size: var(--font-size-base);
+      font-family: inherit;
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      position: relative;
     }
     
-    .theme-option:hover {
-      background: var(--color-bg-primary);
-      border-color: var(--color-border-focus);
+    .theme-option:first-child {
+      border-top-left-radius: var(--radius-lg);
+      border-bottom-left-radius: var(--radius-lg);
+    }
+    
+    .theme-option:last-child {
+      border-top-right-radius: var(--radius-lg);
+      border-bottom-right-radius: var(--radius-lg);
+    }
+    
+    .theme-option:hover:not(.active) {
+      background: var(--color-bg-tertiary);
     }
     
     .theme-option.active {
       background: var(--color-bg-primary);
-      border-color: var(--color-accent);
-      box-shadow: 0 0 0 1px var(--color-accent);
-    }
-    
-    .theme-preview {
-      width: 80px;
-      height: 48px;
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      border: 1px solid var(--color-border-subtle);
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .theme-preview-light {
-      background: #ffffff;
-    }
-    
-    .theme-preview-dark {
-      background: #1a1a1b;
-    }
-    
-    .theme-header {
-      height: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 9px;
-      font-weight: 500;
-    }
-    
-    .theme-preview-light .theme-header {
-      background: #f8f9fa;
-      color: #495057;
-    }
-    
-    .theme-preview-dark .theme-header {
-      background: #1d1e1f;
-      color: #9aa1ad;
-    }
-    
-    .theme-row {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 8px;
-      color: #6c757d;
-    }
-    
-    .theme-preview-light .theme-row {
-      background: #ffffff;
-      color: #495057;
-    }
-    
-    .theme-preview-dark .theme-row {
-      background: #141415;
-      color: #9aa1ad;
-    }
-    
-    .theme-label {
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
       color: var(--color-text-primary);
-      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .theme-option.active:first-child {
+      border-right: 1px solid var(--color-border);
+      margin-right: -1px;
+    }
+    
+    .theme-option.active:last-child {
+      border-left: 1px solid var(--color-border);
+      margin-left: -1px;
     }
     
     /**
@@ -834,13 +796,16 @@
       font-weight: var(--font-weight-normal);
       color: var(--color-text-primary);
       cursor: pointer;
-      user-select: none; /* Предотвращаем выделение текста */
-      line-height: 1.4; /* Оптимальная высота строки */
-      flex: 1; /* Занимает доступное пространство */
+              user-select: none; /* Prevent text selection */
+      /** Optimal line height */
+      line-height: 1.4;
+      /** Takes available space */
+      flex: 1;
     }
 
     .checkbox-meta {
-      color: var(--color-text-secondary); /* Приглушенный цвет для мета-информации */
+      /** Muted color for meta information */
+      color: var(--color-text-secondary);
       font-weight: var(--font-weight-normal);
       font-size: var(--font-size-sm);
     }
@@ -938,8 +903,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: var(--space-md) 0;
-      margin: var(--space-md) 0 0 0;
+      padding: var(--space-xs) 0;
+      margin: var(--space-xs) 0 0 0;
       background: none;
       border: none;
       cursor: pointer;
@@ -1020,6 +985,197 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    /**
+     * Parameter Groups - улучшенная структура для настроек
+     */
+    .parameter-group {
+      margin-bottom: var(--space-2xl);
+    }
+
+    .parameter-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .parameter-header {
+      margin-bottom: var(--space-lg);
+    }
+
+    .parameter-label {
+      display: block;
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-xs);
+      line-height: 1.4;
+    }
+
+    .parameter-description {
+      display: block;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: 1.4;
+    }
+
+    .parameter-controls {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-lg);
+    }
+
+    /**
+     * Enhanced Theme Selector - добавляем превью цветов
+     */
+    .theme-option {
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+    }
+
+    .theme-preview {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid var(--color-border-subtle);
+      flex-shrink: 0;
+    }
+
+    .theme-preview-light {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border-color: #dee2e6;
+    }
+
+    .theme-preview-dark {
+      background: linear-gradient(135deg, #212529 0%, #343a40 100%);
+      border-color: #495057;
+    }
+
+    /**
+     * Enhanced Toggle Items - улучшенная структура переключателей
+     */
+    .toggle-item {
+      align-items: flex-start;
+      padding: var(--space-lg);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-primary);
+      transition: all var(--transition-fast);
+    }
+
+    .toggle-item:hover {
+      border-color: var(--color-border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toggle-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-xs);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .toggle-description {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .toggle-label {
+      margin: 0;
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      line-height: 1.4;
+    }
+
+    .toggle-switch {
+      margin-left: var(--space-lg);
+      margin-top: 2px; /* Выравнивание с первой строкой текста */
+    }
+
+    /**
+     * Tab Navigation - современная табовая навигация
+     */
+    .tabs {
+      margin: 0 calc(-1 * var(--space-xl)) var(--space-2xl);
+      padding: 0 var(--space-xl);
+    }
+
+    .tab-selector {
+      display: flex;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      background: var(--color-bg-secondary);
+      gap: 2px;
+    }
+
+    .tab-option {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+      border: none;
+      border-radius: calc(var(--radius-md) - 2px);
+      background: transparent;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      font-family: inherit;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+
+    .tab-option:hover:not(.active) {
+      background: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
+    }
+
+    .tab-option.active {
+      background: var(--color-bg-primary);
+      color: var(--color-accent);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .tab-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    /**
+     * Tab Content - контейнеры для содержимого табов
+     */
+    .tab-content {
+      display: none;
+      animation: fadeIn var(--transition-base) ease-out;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /**
+     * Tab-specific adjustments
+     */
+    .tab-content .form-section:first-child {
+      margin-top: 0;
+    }
     
 
   </style>
@@ -1033,83 +1189,132 @@
       </div>
       
       <div id="form" style="display: none;">
-        <div class="form-section">
-          <h3 class="section-title">Table Theme</h3>
-          <div class="theme-selector">
-            <div class="theme-option" data-theme="light">
-              <div class="theme-preview theme-preview-light">
-                <div class="theme-header">Theme 1</div>
-                <div class="theme-row">Variable</div>
+        <!-- Tab Navigation -->
+        <div class="tabs">
+          <div class="tab-selector">
+            <button type="button" class="tab-option active" data-tab="generate">
+              <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+              </svg>
+              <span>Generate</span>
+            </button>
+            <button type="button" class="tab-option" data-tab="parametres">
+              <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+              </svg>
+              <span>Parametres</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab Content: Generate -->
+        <div class="tab-content active" id="tab-generate">
+          <div class="form-section">
+            <h3 class="section-title">Collection</h3>
+            <div class="dropdown">
+              <button type="button" id="collection-trigger" class="dropdown-trigger">
+                <span>Select a collection...</span>
+                <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              <div id="collection-menu" class="dropdown-menu">
+                <!-- Options will be populated here -->
               </div>
-              <div class="theme-label">Light</div>
             </div>
-            <div class="theme-option active" data-theme="dark">
-              <div class="theme-preview theme-preview-dark">
-                <div class="theme-header">Theme 1</div>
-                <div class="theme-row">Variable</div>
-              </div>
-              <div class="theme-label">Dark</div>
-            </div>
+            <div id="collection-error" class="error" style="display: none;"></div>
           </div>
           
-          <div class="toggle-item">
-            <label for="show-dev-token" class="toggle-label">Show Dev Token</label>
-            <div class="toggle-switch">
-              <input type="checkbox" id="show-dev-token" class="toggle-input" checked>
-              <span class="toggle-slider"></span>
+          <div class="form-section hidden" id="modes-section">
+            <h3 class="section-title">Themes & Modes</h3>
+            <div class="checkbox-group">
+              <div class="checkbox-group-header">
+                <input type="checkbox" id="select-all-modes" class="checkbox-input">
+                <label for="select-all-modes" class="checkbox-label">Select All Themes</label>
+              </div>
+              <div class="checkbox-group-content" id="modes-container">
+                <!-- Modes will be populated here -->
+              </div>
+            </div>
+            <div id="modes-error" class="error" style="display: none;"></div>
+          </div>
+          
+          <div class="form-section hidden" id="groups-section">
+            <h3 class="section-title">
+              Variables
+              <div id="groups-loading" class="inline-loading" style="display: none;">
+                <div class="inline-loading-spinner"></div>
+                <span>Loading groups...</span>
+              </div>
+            </h3>
+            <div class="checkbox-group">
+              <div class="checkbox-group-header">
+                <input type="checkbox" id="select-all-groups" class="checkbox-input">
+                <label for="select-all-groups" class="checkbox-label">Select All Groups</label>
+              </div>
+              <div class="checkbox-group-content" id="groups-container">
+                <!-- Groups will be populated here -->
+              </div>
+            </div>
+            <div id="groups-error" class="error" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Tab Content: Parametres -->
+        <div class="tab-content" id="tab-parametres">
+          <div class="form-section">
+            <h3 class="section-title">Configuration</h3>
+            
+            <div class="parameter-group">
+              <div class="parameter-header">
+                <span class="parameter-label">Table Theme</span>
+                <span class="parameter-description">Choose visual style for the generated table</span>
+              </div>
+              <div class="theme-selector">
+                <button type="button" class="theme-option" data-theme="light">
+                  <div class="theme-preview theme-preview-light"></div>
+                  <span>Light</span>
+                </button>
+                <button type="button" class="theme-option active" data-theme="dark">
+                  <div class="theme-preview theme-preview-dark"></div>
+                  <span>Dark</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="parameter-group">
+              <div class="parameter-header">
+                <span class="parameter-label">Display Options</span>
+                <span class="parameter-description">Customize table content visibility</span>
+              </div>
+              <div class="parameter-controls">
+                <div class="toggle-item">
+                  <div class="toggle-content">
+                    <label for="show-dev-token" class="toggle-label">Dev Token Column</label>
+                    <span class="toggle-description">Show developer-friendly token names</span>
+                  </div>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="show-dev-token" class="toggle-input" checked>
+                    <span class="toggle-slider"></span>
+                  </div>
+                </div>
+                
+                <div class="toggle-item">
+                  <div class="toggle-content">
+                    <label for="show-swatches" class="toggle-label">Color Swatches</label>
+                    <span class="toggle-description">Display color values as visual swatches</span>
+                  </div>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="show-swatches" class="toggle-input" checked>
+                    <span class="toggle-slider"></span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        
-        <div class="form-section">
-          <h3 class="section-title">Collection</h3>
-          <div class="dropdown">
-            <button type="button" id="collection-trigger" class="dropdown-trigger">
-              <span>Select a collection...</span>
-              <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </button>
-            <div id="collection-menu" class="dropdown-menu">
-              <!-- Options will be populated here -->
-            </div>
-          </div>
-          <div id="collection-error" class="error" style="display: none;"></div>
-        </div>
-        
-        <div class="form-section hidden" id="modes-section">
-          <h3 class="section-title">Themes & Modes</h3>
-          <div class="checkbox-group">
-            <div class="checkbox-group-header">
-              <input type="checkbox" id="select-all-modes" class="checkbox-input">
-              <label for="select-all-modes" class="checkbox-label">Select All Themes</label>
-            </div>
-            <div class="checkbox-group-content" id="modes-container">
-              <!-- Modes will be populated here -->
-            </div>
-          </div>
-          <div id="modes-error" class="error" style="display: none;"></div>
-        </div>
-        
-        <div class="form-section hidden" id="groups-section">
-          <h3 class="section-title">
-            Variables
-            <div id="groups-loading" class="inline-loading" style="display: none;">
-              <div class="inline-loading-spinner"></div>
-              <span>Loading groups...</span>
-            </div>
-          </h3>
-          <div class="checkbox-group">
-            <div class="checkbox-group-header">
-              <input type="checkbox" id="select-all-groups" class="checkbox-input">
-              <label for="select-all-groups" class="checkbox-label">Select All Groups</label>
-            </div>
-            <div class="checkbox-group-content" id="groups-container">
-              <!-- Groups will be populated here -->
-            </div>
-          </div>
-          <div id="groups-error" class="error" style="display: none;"></div>
-        </div>
+
+
       </div>
     </main>
     
@@ -1136,6 +1341,75 @@
     let dropdownOpen = false; // Состояние выпадающего меню
     let selectedTableTheme = 'dark'; // Выбранная тема для таблицы (по умолчанию темная)
     let showDevToken = true; // Показывать ли Dev Token колонку (по умолчанию включено)
+    let showSwatches = true; // Показывать ли цветовые палитры (по умолчанию включено)
+
+    /**
+     * Сохраняет настройки пользователя
+     */
+    function saveUserSettings() {
+      const settings = {
+        tableTheme: selectedTableTheme,
+        showDevToken: showDevToken,
+        showSwatches: showSwatches
+      };
+      
+      console.log('Saving user settings:', settings);
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'save-settings',
+          settings: settings
+        } 
+      }, '*');
+    }
+
+    /**
+     * Загружает настройки пользователя
+     */
+    function loadUserSettings(settings) {
+      console.log('Loading user settings:', settings);
+      
+      // Обновляем переменные
+      selectedTableTheme = settings.tableTheme || 'dark';
+      showDevToken = settings.showDevToken !== undefined ? settings.showDevToken : true;
+      showSwatches = settings.showSwatches !== undefined ? settings.showSwatches : true;
+      
+      // Обновляем UI элементы
+      updateThemeSelector();
+      updateToggleStates();
+      
+      console.log('User settings loaded successfully');
+    }
+
+    /**
+     * Обновляет состояние переключателей в UI
+     */
+    function updateToggleStates() {
+      const showDevTokenToggle = document.getElementById('show-dev-token');
+      const showSwatchesToggle = document.getElementById('show-swatches');
+      
+      if (showDevTokenToggle) {
+        showDevTokenToggle.checked = showDevToken;
+      }
+      
+      if (showSwatchesToggle) {
+        showSwatchesToggle.checked = showSwatches;
+      }
+    }
+
+    /**
+     * Обновляет селектор темы в UI
+     */
+    function updateThemeSelector() {
+      const themeOptions = document.querySelectorAll('.theme-option');
+      themeOptions.forEach(option => {
+        if (option.dataset.theme === selectedTableTheme) {
+          option.classList.add('active');
+        } else {
+          option.classList.remove('active');
+        }
+      });
+    }
 
     /**
      * Инициализация приложения
@@ -1148,7 +1422,107 @@
       setupKeyboardShortcuts();
       setupThemeSelector();
       setupDevTokenToggle();
+      setupSwatchesToggle();
+      setupTabs();
+      
+      // Инициализируем видимость footer в зависимости от активного таба
+      initializeFooterVisibility();
+      
+      // Дополнительная проверка для безопасности
+      setTimeout(() => {
+        const activeTab = document.querySelector('.tab-option.active');
+        if (activeTab && activeTab.dataset.tab === 'parametres') {
+          forceHideFooter();
+          console.log('Window onload: Force hiding footer for Parametres tab');
+        }
+      }, 100);
     };
+
+    /**
+     * Инициализация видимости footer при загрузке
+     * Скрывает footer если активен таб Parametres
+     */
+    function initializeFooterVisibility() {
+      const activeTab = document.querySelector('.tab-option.active');
+      
+      if (activeTab && activeTab.dataset.tab === 'parametres') {
+        // На вкладке Parametres всегда принудительно скрываем footer
+        forceHideFooter();
+        console.log('Initializing footer visibility: Parametres tab - footer force hidden');
+        return;
+      }
+      
+      // На вкладке Generate определяем видимость на основе состояния формы
+      const formElement = document.getElementById('form');
+      const loadingElement = document.getElementById('loading');
+      const shouldShowFooter = formElement && formElement.style.display !== 'none' && 
+                              loadingElement && loadingElement.style.display === 'none';
+      
+      console.log('Initializing footer visibility, form state:', {
+        formVisible: formElement && formElement.style.display !== 'none',
+        loadingHidden: loadingElement && loadingElement.style.display === 'none',
+        shouldShowFooter
+      });
+      
+      updateFooterVisibility(shouldShowFooter);
+    }
+
+    /**
+     * Управляет видимостью footer с учетом активного таба и состояния формы
+     * @param {boolean} showFooter - должен ли footer быть виден (если не учитывать таб)
+     */
+    function updateFooterVisibility(showFooter = true) {
+      const activeTab = document.querySelector('.tab-option.active');
+      const footer = document.querySelector('.actions');
+      
+      if (!footer) {
+        console.warn('Footer element not found');
+        return;
+      }
+      
+      if (!activeTab) {
+        console.warn('No active tab found');
+        return;
+      }
+      
+      const targetTab = activeTab.dataset.tab;
+      
+      // На вкладке Parametres footer всегда скрыт
+      if (targetTab === 'parametres') {
+        footer.style.display = 'none';
+        footer.setAttribute('aria-hidden', 'true');
+        footer.classList.remove('visible');
+        console.log('Footer hidden (Parametres tab)');
+        return;
+      }
+      
+      // На вкладке Generate показываем footer только если это нужно по логике формы
+      if (showFooter) {
+        footer.style.display = 'flex';
+        footer.removeAttribute('aria-hidden');
+        footer.classList.add('visible');
+        console.log('Footer shown (Generate tab, form displayed)');
+      } else {
+        footer.style.display = 'none';
+        footer.setAttribute('aria-hidden', 'true');
+        footer.classList.remove('visible');
+        console.log('Footer hidden (Generate tab, empty state)');
+      }
+    }
+
+    /**
+     * Принудительное скрытие footer (например, для вкладки Parametres)
+     * Используется как дополнительная мера безопасности
+     */
+    function forceHideFooter() {
+      const footer = document.querySelector('.actions');
+      if (footer) {
+        footer.style.display = 'none';
+        footer.setAttribute('aria-hidden', 'true');
+        footer.classList.remove('visible');
+        console.log('Footer force hidden');
+      }
+    }
 
     /**
      * Настройка клавиатурных сочетаний
@@ -1217,15 +1591,19 @@
       
       if (showDevTokenToggle) {
         // Обработчик изменения состояния
-        showDevTokenToggle.addEventListener('change', function() {
-          showDevToken = this.checked;
-          console.log('Show Dev Token:', showDevToken);
+              showDevTokenToggle.addEventListener('change', function() {
+        showDevToken = this.checked;
+        console.log('Show Dev Token:', showDevToken);
+        
+        // Сохраняем настройки автоматически
+        saveUserSettings();
         });
         
-        // Находим toggle-switch контейнер
+        // Находим toggle-item контейнер для клика по всей области
+        const toggleItem = showDevTokenToggle.closest('.toggle-item');
         const toggleSwitch = showDevTokenToggle.parentElement;
         
-        // Обработчик клика по toggle switch контейнеру и slider
+        // Обработчик клика по toggle switch и slider
         if (toggleSwitch && toggleSwitch.classList.contains('toggle-switch')) {
           toggleSwitch.addEventListener('click', function(e) {
             // Предотвращаем двойное срабатывание если кликнули прямо на input
@@ -1239,10 +1617,152 @@
             showDevTokenToggle.dispatchEvent(changeEvent);
           });
         }
+
+        // Обработчик клика по toggle-content для лучшего UX
+        if (toggleItem) {
+          const toggleContent = toggleItem.querySelector('.toggle-content');
+          if (toggleContent) {
+            toggleContent.addEventListener('click', function(e) {
+              // Предотвращаем клик если это уже label
+              if (e.target.tagName.toLowerCase() === 'label') return;
+              
+              // Программно переключаем input
+              showDevTokenToggle.checked = !showDevTokenToggle.checked;
+              
+              // Вызываем событие change
+              const changeEvent = new Event('change', { bubbles: true });
+              showDevTokenToggle.dispatchEvent(changeEvent);
+            });
+          }
+        }
       }
     }
 
-        /**
+    /**
+     * Настройка переключателя отображения Swatches
+     * Управляет видимостью цветовых палитр в таблице
+     */
+    function setupSwatchesToggle() {
+      const showSwatchesToggle = document.getElementById('show-swatches');
+      
+      if (showSwatchesToggle) {
+        // Обработчик изменения состояния
+              showSwatchesToggle.addEventListener('change', function() {
+        showSwatches = this.checked;
+        console.log('Show Swatches:', showSwatches);
+        
+        // Сохраняем настройки автоматически
+        saveUserSettings();
+        });
+        
+        // Находим toggle-item контейнер для клика по всей области
+        const toggleItem = showSwatchesToggle.closest('.toggle-item');
+        const toggleSwitch = showSwatchesToggle.parentElement;
+        
+        // Обработчик клика по toggle switch и slider
+        if (toggleSwitch && toggleSwitch.classList.contains('toggle-switch')) {
+          toggleSwitch.addEventListener('click', function(e) {
+            // Предотвращаем двойное срабатывание если кликнули прямо на input
+            if (e.target === showSwatchesToggle) return;
+            
+            // Программно переключаем input
+            showSwatchesToggle.checked = !showSwatchesToggle.checked;
+            
+            // Вызываем событие change
+            const changeEvent = new Event('change', { bubbles: true });
+            showSwatchesToggle.dispatchEvent(changeEvent);
+          });
+        }
+
+        // Обработчик клика по toggle-content для лучшего UX
+        if (toggleItem) {
+          const toggleContent = toggleItem.querySelector('.toggle-content');
+          if (toggleContent) {
+            toggleContent.addEventListener('click', function(e) {
+              // Предотвращаем клик если это уже label
+              if (e.target.tagName.toLowerCase() === 'label') return;
+              
+              // Программно переключаем input
+              showSwatchesToggle.checked = !showSwatchesToggle.checked;
+              
+              // Вызываем событие change
+              const changeEvent = new Event('change', { bubbles: true });
+              showSwatchesToggle.dispatchEvent(changeEvent);
+            });
+          }
+        }
+      }
+    }
+
+    /**
+     * Настройка табовой навигации
+     * Обеспечивает переключение между вкладками Generate и Parametres
+     */
+    function setupTabs() {
+      const tabOptions = document.querySelectorAll('.tab-option');
+      const tabContents = document.querySelectorAll('.tab-content');
+      const footer = document.querySelector('.actions');
+      
+      tabOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          const targetTab = this.dataset.tab;
+          
+          // Убираем активный класс у всех кнопок табов
+          tabOptions.forEach(opt => opt.classList.remove('active'));
+          
+          // Убираем активный класс у всех контейнеров табов
+          tabContents.forEach(content => content.classList.remove('active'));
+          
+          // Добавляем активный класс к текущей кнопке
+          this.classList.add('active');
+          
+          // Показываем соответствующий контент
+          const targetContent = document.getElementById(`tab-${targetTab}`);
+          if (targetContent) {
+            targetContent.classList.add('active');
+          }
+
+          // Показываем/скрываем footer в зависимости от активного таба
+          if (targetTab === 'parametres') {
+            // На вкладке Parametres всегда принудительно скрываем footer
+            forceHideFooter();
+          } else {
+            // На вкладке Generate определяем видимость на основе состояния формы
+            const formElement = document.getElementById('form');
+            const loadingElement = document.getElementById('loading');
+            const shouldShowFooter = formElement && formElement.style.display !== 'none' && 
+                                    loadingElement && loadingElement.style.display === 'none';
+            
+            updateFooterVisibility(shouldShowFooter);
+          }
+          
+          console.log('Tab switched to:', targetTab);
+        });
+      });
+
+      // Добавляем клавиатурные сокращения для табов
+      document.addEventListener('keydown', function(e) {
+        // Tab 1 (Generate): Ctrl/Cmd + 1
+        if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+          e.preventDefault();
+          const generateTab = document.querySelector('.tab-option[data-tab="generate"]');
+          if (generateTab) {
+            generateTab.click();
+          }
+        }
+        
+        // Tab 2 (Parametres): Ctrl/Cmd + 2
+        if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+          e.preventDefault();
+          const parametresTab = document.querySelector('.tab-option[data-tab="parametres"]');
+          if (parametresTab) {
+            parametresTab.click();
+          }
+        }
+      });
+    }
+
+    /**
      * Обновление плагина - сохраняет выбранные данные пользователя
      */
     function refreshPlugin() {
@@ -1267,83 +1787,132 @@
           </div>
           
           <div id="form" style="display: none;">
-            <div class="form-section">
-              <h3 class="section-title">Table Theme</h3>
-              <div class="theme-selector">
-                <div class="theme-option" data-theme="light">
-                  <div class="theme-preview theme-preview-light">
-                    <div class="theme-header">Variant</div>
-                    <div class="theme-row">Variant</div>
+            <!-- Tab Navigation -->
+            <div class="tabs">
+              <div class="tab-selector">
+                <button type="button" class="tab-option active" data-tab="generate">
+                  <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+                  </svg>
+                  <span>Generate</span>
+                </button>
+                <button type="button" class="tab-option" data-tab="parametres">
+                  <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                  </svg>
+                  <span>Parametres</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Generate -->
+            <div class="tab-content active" id="tab-generate">
+              <div class="form-section">
+                <h3 class="section-title">Collection</h3>
+                <div class="dropdown">
+                  <button type="button" id="collection-trigger" class="dropdown-trigger">
+                    <span>Select a collection...</span>
+                    <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </button>
+                  <div id="collection-menu" class="dropdown-menu">
+                    <!-- Options will be populated here -->
                   </div>
-                  <div class="theme-label">Light</div>
                 </div>
-                <div class="theme-option active" data-theme="dark">
-                  <div class="theme-preview theme-preview-dark">
-                    <div class="theme-header">Variant</div>
-                    <div class="theme-row">Variant</div>
-                  </div>
-                  <div class="theme-label">Dark</div>
-                </div>
+                <div id="collection-error" class="error" style="display: none;"></div>
               </div>
               
-              <div class="toggle-item">
-                <label for="show-dev-token" class="toggle-label">Show Dev Token</label>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="show-dev-token" class="toggle-input" checked>
-                  <span class="toggle-slider"></span>
+              <div class="form-section hidden" id="modes-section">
+                <h3 class="section-title">Themes & Modes</h3>
+                <div class="checkbox-group">
+                  <div class="checkbox-group-header">
+                    <input type="checkbox" id="select-all-modes" class="checkbox-input">
+                    <label for="select-all-modes" class="checkbox-label">Select All Themes</label>
+                  </div>
+                  <div class="checkbox-group-content" id="modes-container">
+                    <!-- Modes will be populated here -->
+                  </div>
+                </div>
+                <div id="modes-error" class="error" style="display: none;"></div>
+              </div>
+              
+              <div class="form-section hidden" id="groups-section">
+                <h3 class="section-title">
+                  Variables
+                  <div id="groups-loading" class="inline-loading" style="display: none;">
+                    <div class="inline-loading-spinner"></div>
+                    <span>Loading groups...</span>
+                  </div>
+                </h3>
+                <div class="checkbox-group">
+                  <div class="checkbox-group-header">
+                    <input type="checkbox" id="select-all-groups" class="checkbox-input">
+                    <label for="select-all-groups" class="checkbox-label">Select All Groups</label>
+                  </div>
+                  <div class="checkbox-group-content" id="groups-container">
+                    <!-- Groups will be populated here -->
+                  </div>
+                </div>
+                <div id="groups-error" class="error" style="display: none;"></div>
+              </div>
+            </div>
+
+            <!-- Tab Content: Parametres -->
+            <div class="tab-content" id="tab-parametres">
+              <div class="form-section">
+                <h3 class="section-title">Configuration</h3>
+                
+                <div class="parameter-group">
+                  <div class="parameter-header">
+                    <span class="parameter-label">Table Theme</span>
+                    <span class="parameter-description">Choose visual style for the generated table</span>
+                  </div>
+                  <div class="theme-selector">
+                    <button type="button" class="theme-option" data-theme="light">
+                      <div class="theme-preview theme-preview-light"></div>
+                      <span>Light</span>
+                    </button>
+                    <button type="button" class="theme-option active" data-theme="dark">
+                      <div class="theme-preview theme-preview-dark"></div>
+                      <span>Dark</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <div class="parameter-header">
+                    <span class="parameter-label">Display Options</span>
+                    <span class="parameter-description">Customize table content visibility</span>
+                  </div>
+                  <div class="parameter-controls">
+                    <div class="toggle-item">
+                      <div class="toggle-content">
+                        <label for="show-dev-token" class="toggle-label">Dev Token Column</label>
+                        <span class="toggle-description">Show developer-friendly token names</span>
+                      </div>
+                      <div class="toggle-switch">
+                        <input type="checkbox" id="show-dev-token" class="toggle-input" checked>
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </div>
+                    
+                    <div class="toggle-item">
+                      <div class="toggle-content">
+                        <label for="show-swatches" class="toggle-label">Color Swatches</label>
+                        <span class="toggle-description">Display color values as visual swatches</span>
+                      </div>
+                      <div class="toggle-switch">
+                        <input type="checkbox" id="show-swatches" class="toggle-input" checked>
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            
-            <div class="form-section">
-              <h3 class="section-title">Collection</h3>
-              <div class="dropdown">
-                <button type="button" id="collection-trigger" class="dropdown-trigger">
-                  <span>Select a collection...</span>
-                  <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                  </svg>
-                </button>
-                <div id="collection-menu" class="dropdown-menu">
-                  <!-- Options will be populated here -->
-                </div>
-              </div>
-              <div id="collection-error" class="error" style="display: none;"></div>
-            </div>
-            
-            <div class="form-section hidden" id="modes-section">
-              <h3 class="section-title">Themes & Modes</h3>
-              <div class="checkbox-group">
-                <div class="checkbox-group-header">
-                  <input type="checkbox" id="select-all-modes" class="checkbox-input">
-                  <label for="select-all-modes" class="checkbox-label">Select All Themes</label>
-                </div>
-                <div class="checkbox-group-content" id="modes-container">
-                  <!-- Modes will be populated here -->
-                </div>
-              </div>
-              <div id="modes-error" class="error" style="display: none;"></div>
-            </div>
-            
-            <div class="form-section hidden" id="groups-section">
-              <h3 class="section-title">
-                Variables
-                <div id="groups-loading" class="inline-loading" style="display: none;">
-                  <div class="inline-loading-spinner"></div>
-                  <span>Loading variables...</span>
-                </div>
-              </h3>
-              <div class="checkbox-group">
-                <div class="checkbox-group-header">
-                  <input type="checkbox" id="select-all-groups" class="checkbox-input">
-                  <label for="select-all-groups" class="checkbox-label">Select All</label>
-                </div>
-                <div class="checkbox-group-content" id="groups-container">
-                  <!-- Groups will be populated here -->
-                </div>
-              </div>
-              <div id="groups-error" class="error" style="display: none;"></div>
-            </div>
+
+
           </div>
         `;
       }
@@ -1368,6 +1937,22 @@
       setupDropdown();
       setupThemeSelector();
       setupDevTokenToggle();
+      setupSwatchesToggle();
+      setupTabs();
+      
+      // Обновляем UI с текущими настройками
+      updateThemeSelector();
+      updateToggleStates();
+      
+      // Инициализируем видимость footer после восстановления табов
+      initializeFooterVisibility();
+      
+      // Дополнительная проверка для вкладки Parametres
+      const activeTab = document.querySelector('.tab-option.active');
+      if (activeTab && activeTab.dataset.tab === 'parametres') {
+        forceHideFooter();
+        console.log('RefreshPlugin: Force hiding footer for Parametres tab');
+      }
       
       // Перезагружаем коллекции
       loadCollections();
@@ -1839,13 +2424,7 @@
         document.getElementById('form').style.display = 'none';
         
         // Hide footer with Cancel/Create buttons in empty state
-        const actionsElement = document.querySelector('.actions');
-        if (actionsElement) {
-          actionsElement.classList.remove('visible');
-          console.log('Footer hidden in empty state'); // Debug log
-        } else {
-          console.error('Actions element not found'); // Debug log
-        }
+        updateFooterVisibility(false);
     }
     
     function showEmptyModesState() {
@@ -2161,7 +2740,8 @@
           modes: selectedModes,
           groups: selectedGroups,
           tableTheme: selectedTableTheme,
-          showDevToken: showDevToken
+          showDevToken: showDevToken,
+          showSwatches: showSwatches
         } 
       }, '*');
     });
@@ -2170,6 +2750,17 @@
     window.addEventListener('message', function(event) {
       const msg = event.data.pluginMessage;
       console.log('Received message:', msg); // Debug log
+      
+      if (msg.type === 'settings-loaded') {
+        console.log('Settings loaded:', msg.settings);
+        loadUserSettings(msg.settings);
+        
+        // Убеждаемся, что UI обновлен после загрузки настроек
+        setTimeout(() => {
+          updateThemeSelector();
+          updateToggleStates();
+        }, 100);
+      }
       
       if (msg.type === 'collections-loaded') {
         collections = msg.collections;
@@ -2187,11 +2778,7 @@
         document.getElementById('form').style.display = 'block';
         
         // Show footer with buttons when form is displayed
-        const actionsElement = document.querySelector('.actions');
-        if (actionsElement) {
-          actionsElement.classList.add('visible');
-          console.log('Footer shown with form'); // Debug log
-        }
+        updateFooterVisibility(true);
         
         const menu = document.getElementById('collection-menu');
         menu.innerHTML = '';
