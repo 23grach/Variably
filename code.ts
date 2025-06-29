@@ -705,13 +705,17 @@ function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableDa
 }
 
 /**
- * Main function for creating variable table from selected collection
+ * Main function for creating unified variable table from selected collection
+ * Creates a single table where themes are columns and groups are separated vertically
  * Coordinates the entire process: filtering, data processing, sorting and UI creation
  * Handles errors and shows notifications to user
  * @param collectionId Variable collection identifier
  * @param collectionName Collection name for display
- * @param modes Array of collection modes/themes
- * @param groups User-selected variable groups
+ * @param modes Array of collection modes/themes (displayed as columns)
+ * @param groups User-selected variable groups (separated vertically with spacing)
+ * @param tableTheme Theme for table styling ('light' or 'dark')
+ * @param showDevToken Whether to show dev token column
+ * @param showSwatches Whether to show color swatches
  */
 async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<void> {
   try {
@@ -962,75 +966,82 @@ function groupVariablesByPrefix(variablesData: VariableData[]): Map<string, Vari
 }
 
 /**
- * Creates main table with Design Token and Dev Token columns
- * @param groupedVariables Variables grouped by prefixes
+ * Creates unified variables table with themes as columns instead of separate tables
+ * Groups are separated vertically with proper spacing and corner rounding
+ * @param variablesData Array of variable data
+ * @param modes Array of modes/themes
  * @param tableTheme Table theme ('light' or 'dark')
- * @returns FrameNode of main table
+ * @param showDevToken Whether to show dev token column
+ * @param showSwatches Whether to show color swatches
  */
-async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>, tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<FrameNode> {
-  const mainTableFrame = figma.createFrame();
-  mainTableFrame.name = 'Main Table';
-  mainTableFrame.layoutMode = 'VERTICAL';
-  mainTableFrame.primaryAxisSizingMode = 'AUTO';
-  mainTableFrame.counterAxisSizingMode = 'AUTO';
-  mainTableFrame.itemSpacing = TABLE_CONFIG.spacing.group;
-  mainTableFrame.fills = [];
-  mainTableFrame.strokes = [];
+async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<void> {
+  /** Create main frame for unified table */
+  const tableFrame = figma.createFrame();
+  tableFrame.name = 'Variables Table';
+  tableFrame.layoutMode = 'VERTICAL';
+  tableFrame.primaryAxisSizingMode = 'AUTO';
+  tableFrame.counterAxisSizingMode = 'AUTO';
+  tableFrame.itemSpacing = TABLE_CONFIG.spacing.group; // Spacing between groups
+  tableFrame.cornerRadius = 0;
+  tableFrame.fills = [];
   
-  /** Create groups with headers */
+  /** Group variables by prefixes */
+  const groupedVariables = groupVariablesByPrefix(variablesData);
+  
+  /** Create unified table with all columns */
+  const groupFrames: FrameNode[] = [];
+  let groupIndex = 0;
+  const totalGroups = groupedVariables.size;
+  
   for (const [prefix, variables] of groupedVariables) {
-    const groupFrame = await createVariableGroup(prefix, variables, 'main', undefined, tableTheme, showDevToken, showSwatches);
-    mainTableFrame.appendChild(groupFrame);
+    const isFirstGroup = groupIndex === 0;
+    const isLastGroup = groupIndex === totalGroups - 1;
+    
+    const groupFrame = await createUnifiedVariableGroup(
+      prefix, 
+      variables, 
+      modes, 
+      tableTheme, 
+      showDevToken, 
+      showSwatches,
+      isFirstGroup,
+      isLastGroup
+    );
+    
+    groupFrames.push(groupFrame);
+    tableFrame.appendChild(groupFrame);
+    groupIndex++;
   }
   
-  return mainTableFrame;
+  /** Position table in viewport */
+  positionTableInViewport(tableFrame);
 }
 
 /**
- * Создает таблицы для каждой темы с колонкой значений
- * @param groupedVariables - Группированные переменные по префиксам
- * @param modes - Массив режимов/тем
- * @param tableTheme - Тема таблицы ('light' или 'dark')
- * @returns Массив FrameNode для каждой темы
- */
-async function createThemeVariablesTables(groupedVariables: Map<string, VariableData[]>, modes: ModeInfo[], tableTheme: string, showSwatches: boolean = true): Promise<FrameNode[]> {
-  const themeFrames: FrameNode[] = [];
-  
-  for (const mode of modes) {
-    const themeFrame = figma.createFrame();
-    themeFrame.name = `Theme: ${mode.name}`;
-    themeFrame.layoutMode = 'VERTICAL';
-    themeFrame.primaryAxisSizingMode = 'AUTO';
-    themeFrame.counterAxisSizingMode = 'AUTO';
-    themeFrame.itemSpacing = TABLE_CONFIG.spacing.group;
-    themeFrame.fills = [];
-    themeFrame.strokes = [];
-    
-    /** Create groups for each prefix within the theme */
-    for (const [prefix, variables] of groupedVariables) {
-      const themeGroupFrame = await createVariableGroup(prefix, variables, 'theme', mode, tableTheme, true, showSwatches);
-      themeFrame.appendChild(themeGroupFrame);
-    }
-    
-    themeFrames.push(themeFrame);
-  }
-  
-  return themeFrames;
-}
-
-/**
- * Creates variable group (for main table or theme)
+ * Creates unified variable group with all theme columns
  * @param prefix Group prefix
  * @param variables Group variables
- * @param type Table type: 'main' or 'theme'
- * @param mode Mode information (only for 'theme' type)
+ * @param modes Array of modes/themes
  * @param tableTheme Table theme ('light' or 'dark')
- * @returns FrameNode of variable group
+ * @param showDevToken Whether to show dev token column
+ * @param showSwatches Whether to show color swatches
+ * @param isFirstGroup Whether this is the first group (for top corners)
+ * @param isLastGroup Whether this is the last group (for bottom corners)
+ * @returns FrameNode of unified variable group
  */
-async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo, tableTheme: string = 'dark', showDevToken: boolean = true, showSwatches: boolean = true): Promise<FrameNode> {
+async function createUnifiedVariableGroup(
+  prefix: string, 
+  variables: VariableData[], 
+  modes: ModeInfo[], 
+  tableTheme: string, 
+  showDevToken: boolean, 
+  showSwatches: boolean,
+  isFirstGroup: boolean,
+  isLastGroup: boolean
+): Promise<FrameNode> {
   /** Create frame for group */
   const groupFrame = figma.createFrame();
-  groupFrame.name = type === 'main' ? `Group: ${prefix}` : `${mode!.name} - ${prefix}`;
+  groupFrame.name = `Group: ${prefix}`;
   groupFrame.layoutMode = 'VERTICAL';
   groupFrame.primaryAxisSizingMode = 'AUTO';
   groupFrame.counterAxisSizingMode = 'AUTO';
@@ -1040,21 +1051,35 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
   groupFrame.paddingLeft = 0;
   groupFrame.paddingRight = 0;
   
-  /** Styles for group */
-  applyGroupStyles(groupFrame, createGroupStyles(tableTheme));
+  /** Apply group styles with proper corner rounding */
+  const groupStyles = createGroupStyles(tableTheme);
+  applyGroupStyles(groupFrame, groupStyles);
   
-  /** Create header */
-  const headerRow = type === 'main' 
-    ? await createMainHeaderRow(tableTheme, showDevToken) 
-    : await createThemeHeaderRow(mode!.name, tableTheme);
+  /** Apply corner rounding based on position */
+  if (isFirstGroup) {
+    groupFrame.topLeftRadius = TABLE_CONFIG.radius.group;
+    groupFrame.topRightRadius = TABLE_CONFIG.radius.group;
+  }
+  if (isLastGroup) {
+    groupFrame.bottomLeftRadius = TABLE_CONFIG.radius.group;
+    groupFrame.bottomRightRadius = TABLE_CONFIG.radius.group;
+  }
+  
+  /** Create unified header with all columns */
+  const headerRow = await createUnifiedHeaderRow(modes, tableTheme, showDevToken);
   groupFrame.appendChild(headerRow);
   
-  /** Create data rows */
+  /** Create data rows with all theme columns */
   for (let i = 0; i < variables.length; i++) {
     try {
-      const dataRow = type === 'main' 
-        ? await createMainDataRow(variables[i], i === variables.length - 1, tableTheme, showDevToken)
-        : await createThemeDataRow(variables[i], mode!, i === variables.length - 1, tableTheme, showSwatches);
+      const dataRow = await createUnifiedDataRow(
+        variables[i], 
+        modes, 
+        i === variables.length - 1, 
+        tableTheme, 
+        showDevToken, 
+        showSwatches
+      );
       groupFrame.appendChild(dataRow);
     } catch (error) {
       /** Skip problematic rows but continue table creation */
@@ -1066,102 +1091,15 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
 }
 
 /**
- * Creates data row for theme (values column only)
- * @param variable Variable data
- * @param mode Mode information
- * @param isLast Whether the row is last in the group
- * @param tableTheme Table theme ('light' or 'dark')
- * @returns FrameNode of data row
- */
-async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast: boolean, tableTheme: string, showSwatches: boolean = true): Promise<FrameNode> {
-  const value = variable.values[mode.modeId];
-  const colorValue = variable.colorValues?.[mode.modeId];
-  const aliasVariable = variable.aliasVariables?.[mode.modeId];
-  
-  const valueCell = await createValueCell(value, variable.variableType, TABLE_CONFIG.sizes.columnWidth.value, colorValue, aliasVariable, tableTheme, showSwatches);
-  valueCell.name = `${variable.name} - ${mode.name}`;
-  
-  /** Wrap cell in container for proper spacing */
-  const valueContainer = figma.createFrame();
-  valueContainer.name = `Value: ${variable.name}`;
-  valueContainer.layoutMode = 'HORIZONTAL';
-  valueContainer.primaryAxisSizingMode = 'AUTO';
-  valueContainer.counterAxisSizingMode = 'AUTO';
-  valueContainer.itemSpacing = 0;
-  valueContainer.fills = [createSolidFill(getTableColors(tableTheme).dataRow.background)];
-  
-  /** Round corners for last row */
-  if (isLast) {
-    valueContainer.bottomLeftRadius = TABLE_CONFIG.radius.header;
-    valueContainer.bottomRightRadius = TABLE_CONFIG.radius.header;
-  }
-  
-  valueContainer.appendChild(valueCell);
-  return valueContainer;
-}
-
-/**
- * Positions table in current user viewport
- * @param tableFrame Table frame to position
- */
-function positionTableInViewport(tableFrame: FrameNode): void {
-  /** Place table in current visible area (where user is zoomed) */
-  figma.currentPage.appendChild(tableFrame);
-  
-  /** Position table in user's viewport */
-  const bounds = tableFrame.absoluteBoundingBox;
-  if (bounds) {
-    /** Place table in top-left corner of current visible area with small offset */
-    tableFrame.x = figma.viewport.center.x - figma.viewport.bounds.width / 2 + 50;
-    tableFrame.y = figma.viewport.center.y - figma.viewport.bounds.height / 2 + 50;
-  }
-  
-  /** Select table */
-  figma.currentPage.selection = [tableFrame];
-  figma.viewport.scrollAndZoomIntoView([tableFrame]);
-}
-
-/**
- * Creates table with variables separated by groups with repeating headers
- * Coordinating function that manages the entire table creation process
- * @param variablesData Array of variable data
+ * Creates unified header row with Design Token, Dev Token (optional), and all theme columns
  * @param modes Array of modes/themes
+ * @param tableTheme Table theme ('light' or 'dark')
+ * @param showDevToken Whether to show dev token column
+ * @returns FrameNode with unified header row
  */
-async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<void> {
-  /** Create main frame for table */
-  const tableFrame = figma.createFrame();
-  tableFrame.name = 'Variables Table';
-  tableFrame.layoutMode = 'HORIZONTAL';
-  tableFrame.primaryAxisSizingMode = 'AUTO';
-  tableFrame.counterAxisSizingMode = 'AUTO';
-  tableFrame.itemSpacing = TABLE_CONFIG.spacing.section;
-  tableFrame.cornerRadius = 0;
-  tableFrame.fills = [];
-  
-  /** 1. Group variables by prefixes */
-  const groupedVariables = groupVariablesByPrefix(variablesData);
-  
-  /** 2. Create main table with variables */
-  const mainTableFrame = await createMainVariablesTable(groupedVariables, tableTheme, showDevToken, showSwatches);
-  tableFrame.appendChild(mainTableFrame);
-  
-  /** 3. Create groups for each theme */
-  const themeFrames = await createThemeVariablesTables(groupedVariables, modes, tableTheme, showSwatches);
-  themeFrames.forEach(themeFrame => {
-    tableFrame.appendChild(themeFrame);
-  });
-  
-  /** 4. Position table in viewport */
-  positionTableInViewport(tableFrame);
-}
-
-/**
- * Создает строку заголовка основной таблицы (только Design Token и Dev Token)
- * @returns FrameNode с ячейками заголовков
- */
-async function createMainHeaderRow(tableTheme: string, showDevToken: boolean = true): Promise<FrameNode> {
+async function createUnifiedHeaderRow(modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true): Promise<FrameNode> {
   const headerRow = figma.createFrame();
-  headerRow.name = 'Main Header Row';
+  headerRow.name = 'Unified Header Row';
   headerRow.layoutMode = 'HORIZONTAL';
   headerRow.primaryAxisSizingMode = 'AUTO';
   headerRow.counterAxisSizingMode = 'AUTO';
@@ -1186,47 +1124,35 @@ async function createMainHeaderRow(tableTheme: string, showDevToken: boolean = t
     headerRow.appendChild(devTokenHeader);
   }
   
-  return headerRow;
-}
-
-/**
- * Creates header row for theme
- * @param themeName Theme name
- * @returns FrameNode with theme header
- */
-async function createThemeHeaderRow(themeName: string, tableTheme: string): Promise<FrameNode> {
-  const headerRow = figma.createFrame();
-  headerRow.name = `Theme Header: ${themeName}`;
-  headerRow.layoutMode = 'HORIZONTAL';
-  headerRow.primaryAxisSizingMode = 'AUTO';
-  headerRow.counterAxisSizingMode = 'AUTO';
-  headerRow.itemSpacing = 0;
-  
-  /** Header styles */
-  headerRow.fills = [createSolidFill(getTableColors(tableTheme).header.background)];
-  
-  /** Round only top corners of header */
-  headerRow.topLeftRadius = TABLE_CONFIG.radius.header;
-  headerRow.topRightRadius = TABLE_CONFIG.radius.header;
-  headerRow.bottomLeftRadius = 0;
-  headerRow.bottomRightRadius = 0;
-  
-  /** Create theme header */
-  const themeHeader = await createHeaderCell(themeName, TABLE_CONFIG.sizes.columnWidth.value, tableTheme);
-  headerRow.appendChild(themeHeader);
+  /** Theme columns */
+  for (const mode of modes) {
+    const themeHeader = await createHeaderCell(mode.name, TABLE_CONFIG.sizes.columnWidth.value, tableTheme);
+    headerRow.appendChild(themeHeader);
+  }
   
   return headerRow;
 }
 
 /**
- * Creates main table data row (without theme columns)
+ * Creates unified data row with Design Token, Dev Token (optional), and all theme value columns
  * @param variableData Variable data
+ * @param modes Array of modes/themes
  * @param isLast Whether the row is last in the group
- * @returns FrameNode with data row
+ * @param tableTheme Table theme ('light' or 'dark')
+ * @param showDevToken Whether to show dev token column
+ * @param showSwatches Whether to show color swatches
+ * @returns FrameNode with unified data row
  */
-async function createMainDataRow(variableData: VariableData, isLast: boolean, tableTheme: string, showDevToken: boolean = true): Promise<FrameNode> {
+async function createUnifiedDataRow(
+  variableData: VariableData, 
+  modes: ModeInfo[], 
+  isLast: boolean, 
+  tableTheme: string, 
+  showDevToken: boolean, 
+  showSwatches: boolean
+): Promise<FrameNode> {
   const dataRow = figma.createFrame();
-  dataRow.name = `Main Data Row: ${variableData.name}`;
+  dataRow.name = `Unified Data Row: ${variableData.name}`;
   dataRow.layoutMode = 'HORIZONTAL';
   dataRow.primaryAxisSizingMode = 'AUTO';
   dataRow.counterAxisSizingMode = 'AUTO';
@@ -1254,6 +1180,24 @@ async function createMainDataRow(variableData: VariableData, isLast: boolean, ta
   if (showDevToken) {
     const devTokenCell = await createDataCell(variableData.devToken, TABLE_CONFIG.sizes.columnWidth.devToken, 'dev-token', tableTheme);
     dataRow.appendChild(devTokenCell);
+  }
+  
+  /** Theme value cells */
+  for (const mode of modes) {
+    const value = variableData.values[mode.modeId];
+    const colorValue = variableData.colorValues?.[mode.modeId];
+    const aliasVariable = variableData.aliasVariables?.[mode.modeId];
+    
+    const valueCell = await createValueCell(
+      value, 
+      variableData.variableType, 
+      TABLE_CONFIG.sizes.columnWidth.value, 
+      colorValue, 
+      aliasVariable, 
+      tableTheme, 
+      showSwatches
+    );
+    dataRow.appendChild(valueCell);
   }
   
   return dataRow;
@@ -1395,6 +1339,27 @@ function formatValueForDisplay(value: string | number | boolean | { r: number; g
   } else {
     return String(value);
   }
+}
+
+/**
+ * Positions table in current user viewport
+ * @param tableFrame Table frame to position
+ */
+function positionTableInViewport(tableFrame: FrameNode): void {
+  /** Place table in current visible area (where user is zoomed) */
+  figma.currentPage.appendChild(tableFrame);
+  
+  /** Position table in user's viewport */
+  const bounds = tableFrame.absoluteBoundingBox;
+  if (bounds) {
+    /** Place table in top-left corner of current visible area with small offset */
+    tableFrame.x = figma.viewport.center.x - figma.viewport.bounds.width / 2 + 50;
+    tableFrame.y = figma.viewport.center.y - figma.viewport.bounds.height / 2 + 50;
+  }
+  
+  /** Select table */
+  figma.currentPage.selection = [tableFrame];
+  figma.viewport.scrollAndZoomIntoView([tableFrame]);
 }
 
 /**
