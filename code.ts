@@ -1369,6 +1369,199 @@ function createColorIndicator(
 }
 
 /**
+ * Создает мини-превью для CSS-градиента (linear-gradient, radial-gradient)
+ * @param gradientString CSS gradient string
+ * @returns RectangleNode с градиентной заливкой
+ */
+function createGradientPreview(gradientString: string): RectangleNode {
+  const size = TABLE_CONFIG.sizes.colorCircle;
+  const rect = figma.createRectangle();
+  rect.resize(size, size);
+  rect.cornerRadius = size / 2;
+
+  let paint: Paint | null = null;
+  try {
+    if (gradientString.startsWith('linear-gradient')) {
+      const match = gradientString.match(/linear-gradient\(([^,]+),(.+)\)/);
+      if (match) {
+        let angle = match[1].trim();
+        const stopsStr = match[2];
+        let angleDeg = 90;
+        const angleMatch = angle.match(/([0-9.]+)deg/);
+        if (angleMatch) angleDeg = parseFloat(angleMatch[1]);
+        const figmaAngle = ((angleDeg - 90) * Math.PI) / 180;
+        const stops = stopsStr.split(',').map(s => s.trim());
+        // --- Новый парсер stops ---
+        const colorStops: ColorStop[] = [];
+        const colorRegex = /#([0-9a-fA-F]{3,8})|rgba?\([^)]*\)|hsla?\([^)]*\)/;
+        let validStops: { color: string; pos?: number }[] = [];
+        stops.forEach((stop, idx) => {
+          const colorMatch = stop.match(colorRegex);
+          if (!colorMatch) return; // skip if no color
+          const color = colorMatch[0];
+          // Позиция — ищем после цвета
+          let pos: number | undefined = undefined;
+          const afterColor = stop.slice(colorMatch.index! + color.length).trim();
+          if (afterColor) {
+            const percentMatch = afterColor.match(/([0-9.]+)%/);
+            if (percentMatch) pos = Math.max(0, Math.min(1, parseFloat(percentMatch[1]) / 100));
+          }
+          validStops.push({ color, pos });
+        });
+        // Если нет позиций — распределяем равномерно
+        if (validStops.length > 1 && validStops.every(s => s.pos === undefined)) {
+          validStops.forEach((s, i) => { s.pos = i / (validStops.length - 1); });
+        } else {
+          // Если позиция не указана — ставим 0 или 1
+          validStops.forEach((s, i) => {
+            if (s.pos === undefined) s.pos = i === 0 ? 0 : 1;
+          });
+        }
+        validStops.forEach(s => {
+          const rgb = parseToRgb(s.color);
+          colorStops.push({
+            color: { r: rgb.r / 255, g: rgb.g / 255, b: rgb.b / 255, a: rgb.a },
+            position: s.pos!
+          });
+        });
+        paint = {
+          type: 'GRADIENT_LINEAR',
+          gradientTransform: [
+            [Math.cos(figmaAngle), Math.sin(figmaAngle), 0],
+            [-Math.sin(figmaAngle), Math.cos(figmaAngle), 0]
+          ],
+          gradientStops: colorStops,
+          visible: true
+        };
+      }
+    } else if (gradientString.startsWith('radial-gradient')) {
+      const match = gradientString.match(/radial-gradient\((.+)\)/);
+      if (match) {
+        const stopsStr = match[1];
+        const stops = stopsStr.split(',').map(s => s.trim());
+        const colorStops: ColorStop[] = [];
+        const colorRegex = /#([0-9a-fA-F]{3,8})|rgba?\([^)]*\)|hsla?\([^)]*\)/;
+        let validStops: { color: string; pos?: number }[] = [];
+        stops.forEach((stop, idx) => {
+          const colorMatch = stop.match(colorRegex);
+          if (!colorMatch) return;
+          const color = colorMatch[0];
+          let pos: number | undefined = undefined;
+          const afterColor = stop.slice(colorMatch.index! + color.length).trim();
+          if (afterColor) {
+            const percentMatch = afterColor.match(/([0-9.]+)%/);
+            if (percentMatch) pos = Math.max(0, Math.min(1, parseFloat(percentMatch[1]) / 100));
+          }
+          validStops.push({ color, pos });
+        });
+        if (validStops.length > 1 && validStops.every(s => s.pos === undefined)) {
+          validStops.forEach((s, i) => { s.pos = i / (validStops.length - 1); });
+        } else {
+          validStops.forEach((s, i) => {
+            if (s.pos === undefined) s.pos = i === 0 ? 0 : 1;
+          });
+        }
+        validStops.forEach(s => {
+          const rgb = parseToRgb(s.color);
+          colorStops.push({
+            color: { r: rgb.r / 255, g: rgb.g / 255, b: rgb.b / 255, a: rgb.a },
+            position: s.pos!
+          });
+        });
+        paint = {
+          type: 'GRADIENT_RADIAL',
+          gradientTransform: [
+            [1, 0, 0],
+            [0, 1, 0]
+          ],
+          gradientStops: colorStops,
+          visible: true
+        };
+      }
+    }
+  } catch (e) {
+    paint = null;
+  }
+  if (paint) {
+    rect.fills = [paint];
+  } else {
+    rect.fills = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
+  }
+  rect.strokes = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 0.08 }];
+  rect.strokeWeight = 1;
+  return rect;
+}
+
+/**
+ * Универсальный парсер цвета (hex, rgb, rgba, hsl, hsla)
+ */
+function parseToRgb(color: string): { r: number; g: number; b: number; a: number } {
+  color = color.trim();
+  if (color.startsWith('#')) {
+    let c = color.slice(1);
+    if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+    if (c.length === 6) c += 'FF';
+    if (c.length === 8) {
+      const num = parseInt(c, 16);
+      return {
+        r: (num >> 24) & 255,
+        g: (num >> 16) & 255,
+        b: (num >> 8) & 255,
+        a: ((num & 255) / 255)
+      };
+    }
+    const num = parseInt(c, 16);
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255,
+      a: 1
+    };
+  }
+  if (color.startsWith('rgb')) {
+    const m = color.match(/rgba?\\(([^)]+)\\)/);
+    if (m) {
+      const parts = m[1].split(',').map(x => x.trim());
+      return {
+        r: parseFloat(parts[0]),
+        g: parseFloat(parts[1]),
+        b: parseFloat(parts[2]),
+        a: parts[3] !== undefined ? parseFloat(parts[3]) : 1
+      };
+    }
+  }
+  if (color.startsWith('hsl')) {
+    const m = color.match(/hsla?\\(([^)]+)\\)/);
+    if (m) {
+      const parts = m[1].split(',').map(x => x.trim());
+      let h = parseFloat(parts[0]);
+      let s = parseFloat(parts[1]) / 100;
+      let l = parseFloat(parts[2]) / 100;
+      let a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+      // hsl to rgb
+      let c = (1 - Math.abs(2 * l - 1)) * s;
+      let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      let m_ = l - c / 2;
+      let r1 = 0, g1 = 0, b1 = 0;
+      if (h < 60) { r1 = c; g1 = x; }
+      else if (h < 120) { r1 = x; g1 = c; }
+      else if (h < 180) { g1 = c; b1 = x; }
+      else if (h < 240) { g1 = x; b1 = c; }
+      else if (h < 300) { r1 = x; b1 = c; }
+      else { r1 = c; b1 = x; }
+      return {
+        r: Math.round((r1 + m_) * 255),
+        g: Math.round((g1 + m_) * 255),
+        b: Math.round((b1 + m_) * 255),
+        a: a
+      };
+    }
+  }
+  // fallback: gray
+  return { r: 200, g: 200, b: 200, a: 1 };
+}
+
+/**
  * Форматирует различные типы значений переменных для читаемого отображения
  * Обрабатывает строки, числа, булевы значения и цветовые объекты
  * Применяет специальное форматирование для имен переменных и цветов
@@ -1409,12 +1602,14 @@ async function createValueText(displayValue: string, tableTheme: string = 'dark'
   textNode.fontName = await loadFontWithFallback('primary');
   textNode.characters = displayValue;
   textNode.fontSize = APP_CONSTANTS.TEXT_SIZE.BODY;
-  
   const colors = getTableColors(tableTheme);
   textNode.fills = [createSolidFill(colors.text.primary)];
   textNode.textAlignHorizontal = 'LEFT';
   textNode.textAlignVertical = 'CENTER';
-  
+  // --- Ограничение ширины и обрезка ---
+  textNode.resizeWithoutConstraints(416, textNode.height); // max width
+  textNode.textAutoResize = 'HEIGHT';
+  textNode.textTruncation = 'ENDING'; // троеточие
   return textNode;
 }
 
@@ -1440,25 +1635,31 @@ async function createValueCell(
   showSwatches: boolean = true
 ): Promise<FrameNode> {
   const cell = createBaseCellMemoized('Value Cell', width, 'HORIZONTAL');
-  
-  // Настраиваем выравнивание контента
-  cell.primaryAxisAlignItems = 'MIN'; // Выравнивание по левому краю (для горизонтального layout)
-  cell.counterAxisAlignItems = 'CENTER'; // Центрирование по вертикали
-  
-  // Определяем цвет для кружка
-  const colorForCircle = determineColorForIndicator(value, type, colorValue);
-  
-  // Создаем цветной кружок для цветовых переменных (только если showSwatches = true)
-  if (colorForCircle && showSwatches) {
-    const colorCircle = createColorIndicator(colorForCircle, type, aliasVariable, tableTheme);
-    cell.appendChild(colorCircle);
+  cell.primaryAxisAlignItems = 'MIN';
+  cell.counterAxisAlignItems = 'CENTER';
+
+  // --- Градиентное мини-превью ---
+  if (
+    showSwatches &&
+    typeof value === 'string' &&
+    (value.startsWith('linear-gradient') || value.startsWith('radial-gradient'))
+  ) {
+    const gradientPreview = createGradientPreview(value);
+    cell.appendChild(gradientPreview);
+  } else {
+    // Обычный цветовой кружок
+    const colorForCircle = determineColorForIndicator(value, type, colorValue);
+    if (colorForCircle && showSwatches) {
+      const colorCircle = createColorIndicator(colorForCircle, type, aliasVariable, tableTheme);
+      cell.appendChild(colorCircle);
+    }
   }
-  
+
   // Форматируем и создаем текст значения
   const displayValue = formatValueForDisplay(value);
   const textNode = await createValueText(displayValue, tableTheme);
   cell.appendChild(textNode);
-  
+
   return cell;
 }
 
