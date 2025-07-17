@@ -727,7 +727,7 @@ async function createVariablesTable(collectionId: string, collectionName: string
     const sortedVariablesData = sortVariablesByPrefixAndName(variablesData);
     
     /** 4. Create table */
-    await createTableFrame(sortedVariablesData, modes, tableTheme, showDevToken, showSwatches);
+    await createTableFrame(sortedVariablesData, modes, tableTheme, showDevToken, showSwatches, collectionName);
     
     /** Show success notification and close plugin */
     figma.notify('✅ Variables table created successfully!', { timeout: 3000 });
@@ -1127,10 +1127,10 @@ function positionTableInViewport(tableFrame: FrameNode): void {
  * @param variablesData Array of variable data
  * @param modes Array of modes/themes
  */
-async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<void> {
+async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true, collectionName?: string): Promise<void> {
   /** Create main frame for table */
   const tableFrame = figma.createFrame();
-  tableFrame.name = 'Variables Table';
+  tableFrame.name = collectionName || 'Variables Table';
   tableFrame.layoutMode = 'HORIZONTAL';
   tableFrame.primaryAxisSizingMode = 'AUTO';
   tableFrame.counterAxisSizingMode = 'AUTO';
@@ -1640,11 +1640,11 @@ async function createValueCell(
 
   // --- Градиентное мини-превью ---
   if (
-    showSwatches &&
     typeof value === 'string' &&
-    (value.startsWith('linear-gradient') || value.startsWith('radial-gradient'))
+    (startsWithKeyword(value, 'linear-gradient') || startsWithKeyword(value, 'radial-gradient'))
   ) {
-    const gradientPreview = createGradientPreview(value);
+    const cleanedValue = value.trim().replace(/^['"]+|['"]+$/g, '');
+    const gradientPreview = createGradientPreview(cleanedValue);
     cell.appendChild(gradientPreview);
   } else {
     // Обычный цветовой кружок
@@ -1795,4 +1795,17 @@ async function saveUserSettings(settings: UserSettings): Promise<void> {
   } catch (error) {
     console.error('Failed to save user settings:', error);
   }
+}
+
+/**
+ * Проверяет, начинается ли строка с указанного ключевого слова,
+ * игнорируя пробелы и кавычки в начале и конце строки.
+ * @param value Исходная строка
+ * @param keyword Ключевое слово (например, 'linear-gradient')
+ */
+function startsWithKeyword(value: string, keyword: string): boolean {
+  if (typeof value !== 'string') return false;
+  // Удаляем пробелы и кавычки в начале и конце строки
+  const cleaned = value.trim().replace(/^['"]+|['"]+$/g, '').toLowerCase();
+  return cleaned.startsWith(keyword.toLowerCase());
 }
