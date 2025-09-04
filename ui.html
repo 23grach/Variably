@@ -4,7 +4,7 @@
   <style>
     /**
      * CSS Custom Properties (Design Tokens)
-     * Централизованная система дизайна для консистентности и простоты поддержки
+     * Centralized design system for consistency and easy maintenance
      */
     :root {
       /** Color palette - semantic tokens for better readability */
@@ -60,10 +60,10 @@
     }
     
     /**
-     * Глобальные стили - базовая настройка для консистентности
+     * Global styles - baseline for consistency
      */
     * {
-      box-sizing: border-box; /* Предсказуемая модель блока */
+      box-sizing: border-box; /* Predictable box model */
     }
     
     body {
@@ -72,59 +72,59 @@
       font-family: var(--font-family);
       font-size: var(--font-size-base);
       font-weight: var(--font-weight-normal);
-      line-height: 1.5; /* Оптимальная читаемость */
+      line-height: 1.5; /* Optimal readability */
       color: var(--color-text-primary);
       background: var(--color-bg-primary);
-      overflow: hidden; /* Фиксированный размер плагина */
-      -webkit-font-smoothing: antialiased; /* Улучшенная отрисовка шрифтов */
+      overflow: hidden; /* Fixed-size plugin viewport */
+      -webkit-font-smoothing: antialiased; /* Improved font rendering */
       -moz-osx-font-smoothing: grayscale;
     }
     
     /**
-     * Основной контейнер - адаптация под реальные размеры плагина
+     * Main container - matches plugin viewport dimensions
      */
     .container {
       width: 400px;
       height: 700px;
       display: flex;
       flex-direction: column;
-      overflow: hidden; /* Предотвращаем переполнение */
+      overflow: hidden; /* Prevent overflow */
     }
     
     /**
-     * Основная область контента - гибкая с прокруткой
+     * Main content area - flexible with scrolling
      */
     .main {
-      flex: 1; /* Занимает доступное пространство */
+      flex: 1; /* Take available space */
       padding: var(--space-3xl);
-      overflow-y: auto; /* Вертикальная прокрутка при необходимости */
-      overflow-x: hidden; /* Предотвращаем горизонтальную прокрутку */
-      min-height: 0; /* Позволяет flex-элементу сжиматься */
+      overflow-y: auto; /* Vertical scrolling as needed */
+      overflow-x: hidden; /* Prevent horizontal scroll */
+      min-height: 0; /* Allow flex item to shrink */
       width: 100%;
     }
     
     /**
-     * Кастомизация скроллбара - минималистичный дизайн
+     * Scrollbar customization - minimal design
      */
     .main::-webkit-scrollbar {
-      width: 8px; /* Тонкий скроллбар */
+      width: 8px; /* Thin scrollbar */
     }
     
     .main::-webkit-scrollbar-track {
-      background: var(--color-bg-primary); /* Невидимый трек */
+      background: var(--color-bg-primary); /* Subtle track */
     }
     
     .main::-webkit-scrollbar-thumb {
-      background: var(--color-border); /* Ненавязчивый цвет */
-      border-radius: 4px; /* Скругленные углы */
+      background: var(--color-border); /* Subtle color */
+      border-radius: 4px; /* Rounded corners */
     }
     
     .main::-webkit-scrollbar-thumb:hover {
-      background: var(--color-text-secondary); /* Интерактивность при ховере */
+      background: var(--color-text-secondary); /* Hover interaction */
     }
     
     /**
-     * Состояние загрузки - центрированное с анимацией
+     * Loading state - centered with animation
      */
     .loading {
       display: flex;
@@ -134,20 +134,20 @@
       padding: var(--space-3xl);
       gap: var(--space-xl);
       text-align: center;
-      height: 100%; /* Занимает всю доступную высоту */
+      height: 100%; /* Full available height */
     }
     
     .loading-spinner {
       width: 32px;
       height: 32px;
       border: 2px solid var(--color-border);
-      border-top: 2px solid var(--color-accent); /* Акцентный цвет для активной части */
+      border-top: 2px solid var(--color-accent); /* Accent for active segment */
       border-radius: 50%;
-      animation: spin 1s linear infinite; /* Плавное вращение */
+      animation: spin 1s linear infinite; /* Smooth rotation */
     }
     
     /**
-     * Анимация вращения спиннера
+     * Spinner rotation animation
      */
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -161,17 +161,17 @@
     }
     
     /**
-     * Skeleton Loading - плавная анимация загрузки контента
+     * Skeleton Loading - smooth content loading animation
      */
     .skeleton {
       background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-tertiary) 50%, var(--color-bg-secondary) 75%);
-      background-size: 200% 100%; /* Увеличенный размер для эффекта движения */
+      background-size: 200% 100%; /* Oversized for motion effect */
       animation: skeleton-loading 1.5s infinite;
       border-radius: var(--radius-sm);
     }
     
     /**
-     * Анимация skeleton - имитация загрузки с движением света
+     * Skeleton animation - sweeping light effect
      */
     @keyframes skeleton-loading {
       0% { background-position: 200% 0; }
@@ -184,16 +184,16 @@
     }
     
     .skeleton-text.large {
-      height: 20px; /* Больший размер для заголовков */
+      height: 20px; /* Larger for headings */
     }
     
     .skeleton-text.small {
       height: 12px;
-      width: 60%; /* Имитация короткого текста */
+      width: 60%; /* Short text simulation */
     }
     
     /**
-     * Inline Loading - компактная загрузка для встроенных элементов
+     * Inline Loading - compact loader for inline elements
      */
     .inline-loading {
       display: flex;
@@ -207,13 +207,13 @@
       width: 16px;
       height: 16px;
       border: 1px solid var(--color-border);
-      border-top: 1px solid var(--color-accent); /* Акцентный цвет для видимости */
+      border-top: 1px solid var(--color-accent); /* Accent for visibility */
       border-radius: 50%;
-      animation: spin 1s linear infinite; /* Использует ту же анимацию */
+      animation: spin 1s linear infinite; /* Reuses spinner animation */
     }
     
     /**
-     * Empty State - информативное состояние отсутствия данных
+     * Empty State - informative no-data state
      */
     .empty-state {
       display: flex;
@@ -224,7 +224,7 @@
       gap: var(--space-lg);
       text-align: center;
       color: var(--color-text-secondary);
-      min-height: 300px; /* Достаточная высота для визуального баланса */
+      min-height: 300px; /* Adequate height for visual balance */
     }
     
     .empty-state-icon {
@@ -235,23 +235,23 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 32px; /* Крупная иконка для привлечения внимания */
-      opacity: 0.8; /* Слегка приглушенная для мягкости */
+      font-size: 32px; /* Large icon for emphasis */
+      opacity: 0.8; /* Slightly muted for softness */
       margin-bottom: var(--space-md);
     }
     
     .empty-state-title {
       font-size: var(--font-size-lg);
       font-weight: var(--font-weight-semibold);
-      color: var(--color-text-primary); /* Контрастный цвет для заголовка */
+      color: var(--color-text-primary); /* High-contrast heading color */
       margin: 0;
     }
     
     .empty-state-description {
       font-size: var(--font-size-base);
       margin: 0;
-      max-width: 400px; /* Ограничение ширины для читаемости */
-      line-height: 1.5; /* Оптимальная высота строки */
+      max-width: 400px; /* Constrain width for readability */
+      line-height: 1.5; /* Optimal line height */
     }
 
     .empty-state-actions {
@@ -259,15 +259,15 @@
       display: flex;
       flex-direction: column;
       gap: var(--space-md);
-      align-items: center; /* Центрирование действий */
+      align-items: center; /* Center actions */
     }
 
     .empty-state .button {
-      min-width: 200px; /* Минимальная ширина для визуального баланса */
+      min-width: 200px; /* Minimum width for balance */
     }
 
     /**
-     * Help Link - стилизованная ссылка с интерактивными эффектами
+     * Help Link - styled link with interactive effects
      */
     .help-link {
       display: inline-flex;
@@ -277,84 +277,84 @@
       text-decoration: none;
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-medium);
-      transition: all var(--transition-fast); /* Плавные переходы */
+      transition: all var(--transition-fast); /* Smooth transitions */
       padding: var(--space-sm) var(--space-lg);
       border-radius: var(--radius-md);
     }
 
     .help-link:hover {
-      background: rgba(0, 102, 255, 0.05); /* Тонкая подсветка при ховере */
-      transform: translateY(-1px); /* Легкий подъем для интерактивности */
+      background: rgba(0, 102, 255, 0.05); /* Subtle hover highlight */
+      transform: translateY(-1px); /* Slight lift for interactivity */
     }
 
     .help-link:focus {
       outline: none;
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.2); /* Фокус для доступности */
+      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.2); /* Accessible focus ring */
     }
 
     /**
-     * Кнопки - современная система с четкими состояниями
+     * Buttons - modern system with clear states
      */
     .button:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.3); /* Видимый фокус для клавиатуры */
+      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.3); /* Visible keyboard focus */
     }
 
     .dropdown-trigger:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.3); /* Консистентный фокус */
+      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.3); /* Consistent focus */
     }
 
     /**
-     * Базовые стили кнопки - гибкая и доступная
+     * Base button styles - flexible and accessible
      */
           .button {
-        height: 44px; /* Оптимальная высота для десктопного интерфейса */
+        height: 44px; /* Optimal desktop control height */
         padding: 0 var(--space-xl);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-md);
         background: var(--color-bg-primary);
         color: var(--color-text-primary);
         font-size: var(--font-size-base);
-        font-family: inherit; /* Наследует системный шрифт */
+        font-family: inherit; /* Inherit system font */
         font-weight: var(--font-weight-medium);
-        transition: all var(--transition-fast); /* Плавные переходы состояний */
+        transition: all var(--transition-fast); /* Smooth state transitions */
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: var(--space-sm); /* Отступ между иконкой и текстом */
+        gap: var(--space-sm); /* Space between icon and text */
         text-decoration: none;
         box-sizing: border-box;
       }
 
       /**
-       * Интерактивные состояния кнопки
+       * Interactive states
        */
       .button:hover {
         border-color: var(--color-border-focus);
         box-shadow: var(--shadow-sm);
-        transform: translateY(-1px); /* Легкий подъем для интерактивности */
+        transform: translateY(-1px); /* Slight lift for interactivity */
       }
 
       .button:active {
-        transform: translateY(0); /* Возврат в исходное положение при клике */
+        transform: translateY(0); /* Return to baseline on click */
       }
 
       .button:disabled {
-        opacity: 0.5; /* Визуальная индикация неактивности */
+        opacity: 0.5; /* Disabled visual state */
         cursor: not-allowed;
-        transform: none; /* Отключение анимаций */
+        transform: none; /* Disable motion */
         box-shadow: none;
       }
 
       /**
-       * Варианты кнопок - primary для основных действий
+       * Button variants - primary for main actions
        */
       .button-primary {
         background: var(--color-accent);
         border-color: var(--color-accent);
-        color: white; /* Высокий контраст на акцентном фоне */
+        color: white; /* High contrast on accent background */
       }
 
       .button-primary:hover:not(:disabled) {
@@ -368,7 +368,7 @@
       }
 
       /**
-       * Secondary кнопка для второстепенных действий
+       * Secondary button for secondary actions
        */
       .button-secondary {
         background: var(--color-bg-primary);
@@ -378,11 +378,11 @@
 
       .button-secondary:hover:not(:disabled) {
         background: var(--color-bg-secondary);
-        border-color: var(--color-accent); /* Акцентная граница при ховере */
+        border-color: var(--color-accent); /* Accent border on hover */
       }
 
       /**
-       * Footer с действиями - фиксированная область внизу
+       * Footer with actions - fixed area at the bottom
        */
       .actions {
         display: none !important; /* Initially hidden, shown only when form is loaded */
@@ -390,7 +390,7 @@
         align-items: center;
         gap: var(--space-lg);
         padding: var(--space-2xl) var(--space-3xl);
-        border-top: 1px solid var(--color-border); /* Визуальное разделение */
+        border-top: 1px solid var(--color-border); /* Visual separation */
         background: var(--color-bg-primary);
       }
       
@@ -403,36 +403,36 @@
 
 
     /**
-     * Удаленное состояние успеха - оставлено для обратной совместимости
+     * Deprecated success state - kept for backwards compatibility
      */
     .success-state {
       display: none !important;
     }
     
     /**
-     * Секции формы - логическая группировка контента
+     * Form sections - logical content grouping
      */
     .form-section {
-      margin-bottom: var(--space-3xl); /* Достаточный отступ между секциями */
+      margin-bottom: var(--space-3xl); /* Adequate spacing between sections */
     }
     
     .form-section:last-child {
-      margin-bottom: 0; /* Убираем отступ у последней секции */
+      margin-bottom: 0; /* Remove margin on last section */
     }
     
     .form-section.hidden {
-      display: none; /* Скрытие неактивных секций */
+      display: none; /* Hide inactive sections */
     }
     
     .section-title {
       font-size: var(--font-size-lg);
       font-weight: var(--font-weight-semibold);
       color: var(--color-text-primary);
-      margin: 0 0 var(--space-lg) 0; /* Отступ только снизу */
+      margin: 0 0 var(--space-lg) 0; /* Bottom-only margin */
     }
     
     /**
-     * Theme Selector - простой segmented control
+     * Theme Selector - simple segmented control
      */
     .theme-selector {
       width: 100%;
@@ -493,7 +493,7 @@
     }
     
     /**
-     * Кастомный Dropdown - полностью контролируемый компонент
+     * Custom Dropdown - fully controlled component
      */
     .dropdown {
       position: relative; /* Для позиционирования меню */
@@ -598,7 +598,7 @@
     }
     
     /**
-     * Группы чекбоксов - структурированные списки с заголовками
+     * Checkbox groups - structured lists with headers
      */
     .checkbox-group {
       border: 1px solid var(--color-border);
@@ -610,7 +610,7 @@
     
     .checkbox-group-header {
       padding: var(--space-lg) var(--space-xl);
-      background: var(--color-bg-secondary); /* Выделение заголовка */
+      background: var(--color-bg-secondary); /* Header emphasis */
       border-bottom: 1px solid var(--color-border);
       display: flex;
       align-items: center;
@@ -620,24 +620,24 @@
     .checkbox-group-header .checkbox-item {
       margin: 0;
       padding: 0;
-      background: none; /* Убираем фон для заголовочного элемента */
+      background: none; /* Remove background for header element */
       border: none;
     }
     
     .checkbox-group-header .checkbox-label {
-      font-weight: var(--font-weight-semibold); /* Выделение заголовка */
+      font-weight: var(--font-weight-semibold); /* Header emphasis */
       color: var(--color-text-primary);
     }
     
     .checkbox-group-content {
-      max-height: 300px; /* Ограничение высоты с прокруткой */
+      max-height: 300px; /* Constrained height with scrolling */
       overflow-y: auto;
       overflow-x: hidden;
-      word-wrap: break-word; /* Перенос длинных названий */
+      word-wrap: break-word; /* Wrap long names */
     }
     
     /**
-     * Кастомизация скроллбара для группы чекбоксов
+     * Scrollbar customization for checkbox groups
      */
     .checkbox-group-content::-webkit-scrollbar {
       width: 8px;
@@ -657,7 +657,7 @@
     }
     
     /**
-     * Элементы чекбоксов - интерактивные строки с современными эффектами
+     * Checkbox items - interactive rows with modern effects
      */
     .checkbox-item {
       display: flex;
@@ -670,17 +670,17 @@
       border-bottom: 1px solid var(--color-border-subtle);
       transition: all var(--transition-fast);
       cursor: pointer;
-      user-select: none; /* Предотвращаем выделение текста при клике */
+      user-select: none; /* Prevent selecting text on click */
       position: relative;
     }
     
     .checkbox-item:last-child {
-      border-bottom: none; /* Убираем границу у последнего элемента */
+      border-bottom: none; /* Remove border for last item */
     }
     
     .checkbox-item:hover {
       background: var(--color-bg-secondary);
-      transform: translateX(4px); /* Сдвиг для интерактивности */
+      transform: translateX(4px); /* Shift on hover for interactivity */
       box-shadow: var(--shadow-sm);
     }
 
@@ -690,7 +690,7 @@
     }
 
     /**
-     * Псевдоэлемент для визуального выделения всей строки
+     * Pseudo-element to visually highlight the entire row
      */
     .checkbox-item::before {
       content: '';
@@ -699,53 +699,53 @@
       left: 0;
       right: 0;
       bottom: 0;
-      pointer-events: none; /* Не блокируем взаимодействие */
+      pointer-events: none; /* Do not block interactions */
       border-radius: var(--radius-sm);
       transition: all var(--transition-fast);
     }
 
     .checkbox-item:focus-within::before {
-      box-shadow: 0 0 0 2px var(--color-accent-hover); /* Фокусное кольцо */
-      background: rgba(0, 102, 255, 0.05); /* Тонкая подсветка фона */
+      box-shadow: 0 0 0 2px var(--color-accent-hover); /* Focus ring */
+      background: rgba(0, 102, 255, 0.05); /* Subtle background highlight */
     }
     
     /**
-     * Современные кастомные чекбоксы с полным контролем стилизации
+     * Modern custom checkboxes with full styling control
      */
     .checkbox-input {
-      appearance: none; /* Убираем нативные стили */
+      appearance: none; /* Remove native styles */
       -webkit-appearance: none;
       -moz-appearance: none;
       width: 18px;
       height: 18px;
       border: 2px solid var(--color-border);
-      border-radius: 4px; /* Слегка скругленные углы */
+      border-radius: 4px; /* Slightly rounded corners */
       background: var(--color-bg-primary);
       position: relative;
       cursor: pointer;
-      transition: all var(--transition-fast); /* Плавные переходы состояний */
+      transition: all var(--transition-fast); /* Smooth state transitions */
       margin: 0;
-      flex-shrink: 0; /* Предотвращаем сжатие в flex-контейнере */
+      flex-shrink: 0; /* Prevent shrinking in flex container */
     }
 
     .checkbox-input:hover {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1); /* Тонкое свечение при ховере */
+      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1); /* Subtle glow on hover */
     }
 
     .checkbox-input:focus {
       outline: none;
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.2); /* Более яркое фокусное кольцо */
+      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.2); /* Stronger focus ring */
     }
 
     .checkbox-input:checked {
-      background: var(--color-accent); /* Акцентный фон при выборе */
+      background: var(--color-accent); /* Accent background when checked */
       border-color: var(--color-accent);
     }
 
     /**
-     * Галочка для отмеченного состояния
+     * Checkmark for checked state
      */
     .checkbox-input:checked::after {
       content: '';
@@ -754,9 +754,9 @@
       left: 5px;
       width: 4px;
       height: 8px;
-      border: solid white; /* Белая галочка на акцентном фоне */
+      border: solid white; /* White checkmark on accent background */
       border-width: 0 2px 2px 0;
-      transform: rotate(45deg); /* Поворот для создания галочки */
+      transform: rotate(45deg); /* Rotate to form checkmark */
     }
 
     .checkbox-input:indeterminate {
@@ -765,7 +765,7 @@
     }
 
     /**
-     * Тире для состояния "частично выбрано"
+     * Dash for indeterminate state
      */
     .checkbox-input:indeterminate::after {
       content: '';
@@ -774,20 +774,20 @@
       left: 3px;
       width: 8px;
       height: 2px;
-      background: white; /* Белое тире на акцентном фоне */
+      background: white; /* White dash on accent background */
       border-radius: 1px;
-      transform: none; /* Без поворота для горизонтального тире */
+      transform: none; /* No rotation for horizontal dash */
     }
 
     .checkbox-input:disabled {
-      opacity: 0.5; /* Визуальная индикация неактивности */
+      opacity: 0.5; /* Disabled visual state */
       cursor: not-allowed;
       border-color: var(--color-border);
       background: var(--color-bg-tertiary);
     }
 
     .checkbox-input:disabled:checked {
-      background: var(--color-text-disabled); /* Приглушенный цвет для неактивного состояния */
+      background: var(--color-text-disabled); /* Muted color when disabled */
       border-color: var(--color-text-disabled);
     }
 
@@ -811,7 +811,7 @@
     }
     
     /**
-     * Состояния ошибок - информативные сообщения с иконками
+     * Error states - informative messages with icons
      */
     .error {
       display: flex;
@@ -819,66 +819,66 @@
       gap: var(--space-sm);
       margin-top: var(--space-md);
       padding: var(--space-md) var(--space-lg);
-      background: rgba(220, 53, 69, 0.1); /* Тонкий красный фон */
-      border: 1px solid rgba(220, 53, 69, 0.2); /* Красная граница */
+      background: rgba(220, 53, 69, 0.1); /* Subtle red background */
+      border: 1px solid rgba(220, 53, 69, 0.2); /* Red border */
       border-radius: var(--radius-md);
       font-size: var(--font-size-sm);
       color: var(--color-error);
     }
     
     .error::before {
-      content: "⚠"; /* Иконка предупреждения */
+      content: "⚠"; /* Warning icon */
       font-size: 14px;
     }
     
     /**
-     * Область действий в footer - фиксированная с кнопками
+     * Footer actions area - fixed with buttons
      */
     .actions {
-      flex-shrink: 0; /* Не сжимается при нехватке места */
+      flex-shrink: 0; /* Do not shrink */
       padding: var(--space-3xl);
-      background: var(--color-bg-secondary); /* Выделение области действий */
+      background: var(--color-bg-secondary); /* Emphasize actions area */
       border-top: 1px solid var(--color-border-subtle);
       display: flex;
       gap: var(--space-lg);
     }
     
     .actions .button {
-      flex: 1; /* Равномерное распределение кнопок */
+      flex: 1; /* Evenly distribute buttons */
     }
     
     /**
-     * Библиотека анимаций - естественные движения для улучшения UX
+     * Animation library - natural motion to improve UX
      */
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); } /* Легкое появление снизу */
+      from { opacity: 0; transform: translateY(8px); } /* Subtle rise in */
       to { opacity: 1; transform: translateY(0); }
     }
     
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(16px); } /* Более заметное появление */
+      from { opacity: 0; transform: translateY(16px); } /* More noticeable rise */
       to { opacity: 1; transform: translateY(0); }
     }
     
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; } /* Пульсация для привлечения внимания */
+      50% { opacity: 0.6; } /* Pulse to draw attention */
     }
     
     .form-section {
-      animation: fadeIn var(--transition-base) ease-out; /* Плавное появление секций */
+      animation: fadeIn var(--transition-base) ease-out; /* Smooth section entrance */
     }
     
     .checkbox-item {
-      transition: all var(--transition-fast); /* Плавные переходы всех свойств */
+      transition: all var(--transition-fast); /* Smooth transitions */
     }
     
     .checkbox-item:hover {
-      transform: translateX(2px); /* Альтернативный сдвиг для ховера */
+      transform: translateX(2px); /* Alternate hover shift */
     }
     
     /**
-     * Индикаторы статуса - компактные информационные элементы
+     * Status indicators - compact informative elements
      */
     .status-indicator {
       display: inline-flex;
@@ -891,7 +891,7 @@
     }
     
     .status-ready {
-      background: rgba(25, 135, 84, 0.1); /* Зеленый фон для готовности */
+      background: rgba(25, 135, 84, 0.1); /* Green background for ready state */
       color: var(--color-success);
       border: 1px solid rgba(25, 135, 84, 0.2);
     }
@@ -1024,7 +1024,7 @@
     }
 
     /**
-     * Enhanced Theme Selector - добавляем превью цветов
+     * Enhanced Theme Selector - add color previews
      */
     .theme-option {
       gap: var(--space-sm);
@@ -1050,7 +1050,7 @@
     }
 
     /**
-     * Enhanced Toggle Items - улучшенная структура переключателей
+     * Enhanced Toggle Items - improved structure for toggles
      */
     .toggle-item {
       align-items: flex-start;
@@ -1095,7 +1095,7 @@
     }
 
     /**
-     * Tab Navigation - современная табовая навигация
+     * Tab Navigation - modern tab navigation
      */
     .tabs {
       margin: 0 calc(-1 * var(--space-xl)) var(--space-2xl);
@@ -1148,7 +1148,7 @@
     }
 
     /**
-     * Tab Content - контейнеры для содержимого табов
+     * Tab Content - containers for tab content
      */
     .tab-content {
       display: none;
@@ -1412,8 +1412,8 @@
     }
 
     /**
-     * Инициализация приложения
-     * Загружает данные и настраивает интерфейс
+     * App initialization
+     * Loads data and configures the interface
      */
     window.onload = function() {
       console.log('Window loaded, loading collections...'); // Debug log
@@ -1425,10 +1425,10 @@
       setupSwatchesToggle();
       setupTabs();
       
-      // Инициализируем видимость footer в зависимости от активного таба
+      // Initialize footer visibility based on active tab
       initializeFooterVisibility();
       
-      // Дополнительная проверка для безопасности
+      // Additional safety check
       setTimeout(() => {
         const activeTab = document.querySelector('.tab-option.active');
         if (activeTab && activeTab.dataset.tab === 'parametres') {
@@ -1439,20 +1439,20 @@
     };
 
     /**
-     * Инициализация видимости footer при загрузке
-     * Скрывает footer если активен таб Parametres
+     * Initializes footer visibility on load
+     * Hides footer when the Parametres tab is active
      */
     function initializeFooterVisibility() {
       const activeTab = document.querySelector('.tab-option.active');
       
       if (activeTab && activeTab.dataset.tab === 'parametres') {
-        // На вкладке Parametres всегда принудительно скрываем footer
+        // On the Parametres tab, always force hide the footer
         forceHideFooter();
         console.log('Initializing footer visibility: Parametres tab - footer force hidden');
         return;
       }
       
-      // На вкладке Generate определяем видимость на основе состояния формы
+      // On the Generate tab, determine visibility based on form state
       const formElement = document.getElementById('form');
       const loadingElement = document.getElementById('loading');
       const shouldShowFooter = formElement && formElement.style.display !== 'none' && 
@@ -1468,8 +1468,8 @@
     }
 
     /**
-     * Управляет видимостью footer с учетом активного таба и состояния формы
-     * @param {boolean} showFooter - должен ли footer быть виден (если не учитывать таб)
+     * Controls footer visibility based on the active tab and form state
+     * @param {boolean} showFooter - whether the footer should be visible (ignoring tab)
      */
     function updateFooterVisibility(showFooter = true) {
       const activeTab = document.querySelector('.tab-option.active');
@@ -1487,7 +1487,7 @@
       
       const targetTab = activeTab.dataset.tab;
       
-      // На вкладке Parametres footer всегда скрыт
+      // On the Parametres tab, the footer is always hidden
       if (targetTab === 'parametres') {
         footer.style.display = 'none';
         footer.setAttribute('aria-hidden', 'true');
@@ -1496,7 +1496,7 @@
         return;
       }
       
-      // На вкладке Generate показываем footer только если это нужно по логике формы
+      // On the Generate tab, show the footer only when the form is displayed
       if (showFooter) {
         footer.style.display = 'flex';
         footer.removeAttribute('aria-hidden');
@@ -1511,8 +1511,8 @@
     }
 
     /**
-     * Принудительное скрытие footer (например, для вкладки Parametres)
-     * Используется как дополнительная мера безопасности
+     * Force-hide the footer (e.g., for the Parametres tab)
+     * Used as an extra safety measure
      */
     function forceHideFooter() {
       const footer = document.querySelector('.actions');
@@ -1525,12 +1525,12 @@
     }
 
     /**
-     * Настройка клавиатурных сочетаний
-     * Улучшает доступность и скорость работы
+     * Keyboard shortcuts setup
+     * Improves accessibility and efficiency
      */
     function setupKeyboardShortcuts() {
       document.addEventListener('keydown', function(e) {
-        // Ctrl+Enter или Cmd+Enter для создания таблицы
+        // Ctrl+Enter or Cmd+Enter to create the table
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
           e.preventDefault();
           const createButton = document.getElementById('create');
@@ -1539,7 +1539,7 @@
           }
         }
         
-        // Escape или F5 для обновления списков
+        // Escape or F5 to refresh lists
         if (e.key === 'Escape' || e.key === 'F5') {
           e.preventDefault();
           const refreshButton = document.getElementById('refresh');
@@ -1551,30 +1551,30 @@
     }
 
     /**
-     * Обработчик кликов по справочным ссылкам
-     * Используется для аналитики и логирования
+     * Help link click handler
+     * Can be used for analytics/logging
      */
     function openHelpLink(event) {
-      // Отправляем аналитику или логирование, если нужно
+      // Send analytics/logging if needed
       console.log('Help link clicked:', event.target.href);
     }
 
     /**
-     * Настройка селектора темы таблицы
-     * Устанавливает обработчики событий для выбора темы
+     * Table theme selector setup
+     * Adds event handlers for choosing a theme
      */
     function setupThemeSelector() {
       const themeOptions = document.querySelectorAll('.theme-option');
       
       themeOptions.forEach(option => {
         option.addEventListener('click', function() {
-          // Убираем активный класс у всех опций
+          // Remove active class from all options
           themeOptions.forEach(opt => opt.classList.remove('active'));
           
-          // Добавляем активный класс к выбранной опции
+          // Add active class to the selected option
           this.classList.add('active');
           
-          // Сохраняем выбранную тему
+          // Save selected theme
           selectedTableTheme = this.dataset.theme;
           
           console.log('Selected table theme:', selectedTableTheme);
@@ -1583,53 +1583,53 @@
     }
 
     /**
-     * Настройка переключателя отображения Dev Token
-     * Управляет видимостью колонки Dev Token в таблице
+     * Dev Token toggle setup
+     * Controls visibility of the Dev Token column
      */
     function setupDevTokenToggle() {
       const showDevTokenToggle = document.getElementById('show-dev-token');
       
       if (showDevTokenToggle) {
-        // Обработчик изменения состояния
+        // Change handler
               showDevTokenToggle.addEventListener('change', function() {
         showDevToken = this.checked;
         console.log('Show Dev Token:', showDevToken);
         
-        // Сохраняем настройки автоматически
+        // Save settings automatically
         saveUserSettings();
         });
         
-        // Находим toggle-item контейнер для клика по всей области
+        // Make the entire toggle area clickable
         const toggleItem = showDevTokenToggle.closest('.toggle-item');
         const toggleSwitch = showDevTokenToggle.parentElement;
         
-        // Обработчик клика по toggle switch и slider
+        // Click handler for toggle switch and slider
         if (toggleSwitch && toggleSwitch.classList.contains('toggle-switch')) {
           toggleSwitch.addEventListener('click', function(e) {
-            // Предотвращаем двойное срабатывание если кликнули прямо на input
+            // Prevent double handling when clicking the input directly
             if (e.target === showDevTokenToggle) return;
             
-            // Программно переключаем input
+            // Programmatically toggle input
             showDevTokenToggle.checked = !showDevTokenToggle.checked;
             
-            // Вызываем событие change
+            // Dispatch change event
             const changeEvent = new Event('change', { bubbles: true });
             showDevTokenToggle.dispatchEvent(changeEvent);
           });
         }
 
-        // Обработчик клика по toggle-content для лучшего UX
+        // Click handler on toggle-content for better UX
         if (toggleItem) {
           const toggleContent = toggleItem.querySelector('.toggle-content');
           if (toggleContent) {
             toggleContent.addEventListener('click', function(e) {
-              // Предотвращаем клик если это уже label
+              // Prevent when clicking the label itself
               if (e.target.tagName.toLowerCase() === 'label') return;
               
-              // Программно переключаем input
+              // Programmatically toggle input
               showDevTokenToggle.checked = !showDevTokenToggle.checked;
               
-              // Вызываем событие change
+              // Dispatch change event
               const changeEvent = new Event('change', { bubbles: true });
               showDevTokenToggle.dispatchEvent(changeEvent);
             });
@@ -1639,14 +1639,14 @@
     }
 
     /**
-     * Настройка переключателя отображения Swatches
-     * Управляет видимостью цветовых палитр в таблице
+     * Swatches toggle setup
+     * Controls visibility of color swatches in the table
      */
     function setupSwatchesToggle() {
       const showSwatchesToggle = document.getElementById('show-swatches');
       
       if (showSwatchesToggle) {
-        // Обработчик изменения состояния
+        // Change handler
               showSwatchesToggle.addEventListener('change', function() {
         showSwatches = this.checked;
         console.log('Show Swatches:', showSwatches);
@@ -1655,37 +1655,37 @@
         saveUserSettings();
         });
         
-        // Находим toggle-item контейнер для клика по всей области
+        // Make the entire toggle area clickable
         const toggleItem = showSwatchesToggle.closest('.toggle-item');
         const toggleSwitch = showSwatchesToggle.parentElement;
         
-        // Обработчик клика по toggle switch и slider
+        // Click handler for toggle switch and slider
         if (toggleSwitch && toggleSwitch.classList.contains('toggle-switch')) {
           toggleSwitch.addEventListener('click', function(e) {
-            // Предотвращаем двойное срабатывание если кликнули прямо на input
+            // Prevent double handling when clicking the input directly
             if (e.target === showSwatchesToggle) return;
             
-            // Программно переключаем input
+            // Programmatically toggle input
             showSwatchesToggle.checked = !showSwatchesToggle.checked;
             
-            // Вызываем событие change
+            // Dispatch change event
             const changeEvent = new Event('change', { bubbles: true });
             showSwatchesToggle.dispatchEvent(changeEvent);
           });
         }
 
-        // Обработчик клика по toggle-content для лучшего UX
+        // Click handler on toggle-content for better UX
         if (toggleItem) {
           const toggleContent = toggleItem.querySelector('.toggle-content');
           if (toggleContent) {
             toggleContent.addEventListener('click', function(e) {
-              // Предотвращаем клик если это уже label
+              // Prevent when clicking the label itself
               if (e.target.tagName.toLowerCase() === 'label') return;
               
-              // Программно переключаем input
+              // Programmatically toggle input
               showSwatchesToggle.checked = !showSwatchesToggle.checked;
               
-              // Вызываем событие change
+              // Dispatch change event
               const changeEvent = new Event('change', { bubbles: true });
               showSwatchesToggle.dispatchEvent(changeEvent);
             });
@@ -1695,8 +1695,8 @@
     }
 
     /**
-     * Настройка табовой навигации
-     * Обеспечивает переключение между вкладками Generate и Parametres
+     * Tabs setup
+     * Switches between Generate and Parametres
      */
     function setupTabs() {
       const tabOptions = document.querySelectorAll('.tab-option');
@@ -1707,27 +1707,27 @@
         option.addEventListener('click', function() {
           const targetTab = this.dataset.tab;
           
-          // Убираем активный класс у всех кнопок табов
+          // Remove active class from all tab buttons
           tabOptions.forEach(opt => opt.classList.remove('active'));
           
-          // Убираем активный класс у всех контейнеров табов
+          // Remove active class from all tab containers
           tabContents.forEach(content => content.classList.remove('active'));
           
-          // Добавляем активный класс к текущей кнопке
+          // Add active class to the current button
           this.classList.add('active');
           
-          // Показываем соответствующий контент
+          // Show corresponding content
           const targetContent = document.getElementById(`tab-${targetTab}`);
           if (targetContent) {
             targetContent.classList.add('active');
           }
 
-          // Показываем/скрываем footer в зависимости от активного таба
+          // Show/hide footer based on active tab
           if (targetTab === 'parametres') {
-            // На вкладке Parametres всегда принудительно скрываем footer
+            // On Parametres, always force-hide footer
             forceHideFooter();
           } else {
-            // На вкладке Generate определяем видимость на основе состояния формы
+            // On Generate, determine visibility based on form state
             const formElement = document.getElementById('form');
             const loadingElement = document.getElementById('loading');
             const shouldShowFooter = formElement && formElement.style.display !== 'none' && 
@@ -1740,7 +1740,7 @@
         });
       });
 
-      // Добавляем клавиатурные сокращения для табов
+      // Add keyboard shortcuts for tabs
       document.addEventListener('keydown', function(e) {
         // Tab 1 (Generate): Ctrl/Cmd + 1
         if ((e.ctrlKey || e.metaKey) && e.key === '1') {
@@ -1763,10 +1763,10 @@
     }
 
     /**
-     * Обновление плагина - сохраняет выбранные данные пользователя
+     * Plugin refresh - preserves user's selected data
      */
     function refreshPlugin() {
-      // Сохраняем текущее состояние пользователя
+      // Save current user state
       const savedState = {
         selectedCollectionId: selectedCollection ? selectedCollection.id : null,
         selectedModeIds: [...selectedModes.map(mode => mode.modeId)],
@@ -1775,7 +1775,7 @@
       
       console.log('Saving state before refresh:', savedState);
       
-      // Восстанавливаем оригинальную структуру
+      // Restore original structure
       const main = document.querySelector('.main');
       const actionsElement = document.querySelector('.actions');
       
@@ -1917,12 +1917,12 @@
         `;
       }
       
-      // Скрываем footer
+      // Hide footer
       if (actionsElement) {
         actionsElement.classList.remove('visible');
       }
       
-      // Сбрасываем только UI состояние, но сохраняем savedState для восстановления
+      // Reset only UI state, but keep savedState for restoration
       collections = [];
       selectedCollection = null;
       selectedModes = [];
@@ -1930,37 +1930,37 @@
       selectedGroups = [];
       dropdownOpen = false;
       
-      // Сохраняем состояние для восстановления после загрузки данных
+      // Save state for restoration after data loads
       window.pendingStateRestore = savedState;
       
-      // Переустанавливаем обработчики
+      // Re-attach handlers
       setupDropdown();
       setupThemeSelector();
       setupDevTokenToggle();
       setupSwatchesToggle();
       setupTabs();
       
-      // Обновляем UI с текущими настройками
+      // Update UI with current settings
       updateThemeSelector();
       updateToggleStates();
       
-      // Инициализируем видимость footer после восстановления табов
+      // Initialize footer visibility after restoring tabs
       initializeFooterVisibility();
       
-      // Дополнительная проверка для вкладки Parametres
+      // Additional check for the Parametres tab
       const activeTab = document.querySelector('.tab-option.active');
       if (activeTab && activeTab.dataset.tab === 'parametres') {
         forceHideFooter();
         console.log('RefreshPlugin: Force hiding footer for Parametres tab');
       }
       
-      // Перезагружаем коллекции
+      // Reload collections
       loadCollections();
     }
 
     /**
-     * Загрузка списка коллекций переменных
-     * Отправляет запрос в основной поток плагина
+     * Load the list of variable collections
+     * Sends a request to the plugin main thread
      */
     function loadCollections() {
       console.log('Sending load-collections message...'); // Debug log
@@ -1970,7 +1970,7 @@
     }
 
     /**
-     * Восстанавливает сохранённое состояние пользователя после обновления данных
+     * Restores saved user state after data updates
      */
     function restoreState() {
       const savedState = window.pendingStateRestore;
@@ -1981,23 +1981,23 @@
       
       console.log('Restoring saved state:', savedState);
       
-      // Восстанавливаем выбранную коллекцию
+      // Restore selected collection
       if (savedState.selectedCollectionId && collections.length > 0) {
         const collection = collections.find(c => c.id === savedState.selectedCollectionId);
         if (collection) {
           console.log('Restoring collection:', collection.name);
           selectCollection(collection);
           
-          // После выбора коллекции нужно дождаться загрузки групп, чтобы восстановить остальное
-          // Это будет обработано в обработчике 'groups-loaded'
+          // After choosing collection, wait for groups to load to restore the rest
+          // Handled by the 'groups-loaded' handler
         }
       }
       
-      // НЕ очищаем сохранённое состояние - оно понадобится в restoreSelections()
+      // Do NOT clear saved state yet — needed in restoreSelections()
     }
 
     /**
-     * Восстанавливает выбранные темы и группы после их загрузки
+     * Restores selected modes and groups after they are loaded
      */
     function restoreSelections() {
       const savedState = window.pendingStateRestore;
@@ -2005,7 +2005,7 @@
       
       console.log('Restoring selections:', savedState);
       
-      // Восстанавливаем выбранные темы
+      // Restore selected modes
       if (savedState.selectedModeIds.length > 0 && selectedCollection && selectedCollection.modes) {
         savedState.selectedModeIds.forEach(modeId => {
           const mode = selectedCollection.modes.find(m => m.modeId === modeId);
@@ -2021,12 +2021,12 @@
           }
         });
         
-        // Обновляем состояние чекбокса "выбрать все" для modes
+        // Update "Select All" checkbox state for modes
         updateSelectAllModesState();
         console.log('Restored modes:', selectedModes.map(m => m.name));
       }
       
-      // Восстанавливаем выбранные группы
+      // Restore selected groups
       if (savedState.selectedGroupNames.length > 0 && availableGroups.length > 0) {
         savedState.selectedGroupNames.forEach(groupName => {
           const group = availableGroups.find(g => (g.name || g.prefix) === groupName);
@@ -2039,21 +2039,21 @@
           }
         });
         
-        // Обновляем состояние чекбокса "выбрать все" для groups
+        // Update "Select All" checkbox state for groups
         updateSelectAllGroupsState();
         console.log('Restored groups:', selectedGroups.map(g => g.name || g.prefix));
       }
       
-      // Обновляем кнопку создания
+      // Update Create button
       updateCreateButton();
       
-      // Очищаем сохранённое состояние после восстановления
+      // Clear saved state after restoring
       delete window.pendingStateRestore;
     }
 
     /**
-     * Настройка кастомного dropdown с поддержкой клавиатуры
-     * Реализует полную доступность и современное поведение
+     * Custom dropdown setup with keyboard support
+     * Provides full accessibility and modern behavior
      */
     function setupDropdown() {
       const trigger = document.getElementById('collection-trigger');
@@ -2064,7 +2064,7 @@
         return;
       }
       
-      let focusedItemIndex = -1; // Индекс сфокусированного элемента для навигации
+      let focusedItemIndex = -1; // Index of focused item for navigation
       
       trigger.addEventListener('click', function(e) {
         e.preventDefault();
@@ -2157,7 +2157,7 @@
       const menu = document.getElementById('collection-menu');
       
       if (!trigger || !menu) {
-        // Молча сбрасываем состояние, если элементы не найдены
+        // Silently reset state if elements are not found
         dropdownOpen = false;
         return;
       }
@@ -2189,7 +2189,7 @@
     function updateCreateButton() {
       const createBtn = document.getElementById('create');
       if (!createBtn) {
-        // Кнопка create может не существовать в некоторых состояниях
+        // Create button may not exist in some states
         console.warn('Create button not found');
         return;
       }
@@ -2281,17 +2281,17 @@
         label.className = 'checkbox-label';
         label.textContent = mode.name;
         
-        // Улучшенная обработка кликов на всей строке
+        // Improved row-wide click handling
         function handleRowClick(e) {
-          // Предотвращаем двойное срабатывание если кликнули прямо на checkbox
+          // Prevent double handling when clicking directly on the checkbox
           if (e.target === checkbox) return;
           
-          // Программно переключаем checkbox и вызываем событие change
+          // Programmatically toggle the checkbox and dispatch change
           e.preventDefault();
           e.stopPropagation();
           checkbox.checked = !checkbox.checked;
           
-          // Создаем и диспатчим событие change
+          // Create and dispatch a change event
           const changeEvent = new Event('change', {
             bubbles: true,
             cancelable: true
@@ -2696,11 +2696,11 @@
         tableTheme: selectedTableTheme
       }); // Debug log
       
-      // Скрываем всю форму и показываем только loading
+      // Hide the entire form and show only a loading screen
       document.querySelector('.main').style.display = 'none';
       document.querySelector('.actions').style.display = 'none';
       
-      // Показываем простой loading экран
+      // Show a simple loading screen
       document.body.innerHTML = `
         <div style="
           display: flex;
@@ -2764,6 +2764,8 @@
       
       if (msg.type === 'collections-loaded') {
         collections = msg.collections;
+        // Sort collections by name for predictable ordering
+        collections.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
         console.log('Collections loaded:', collections); // Debug log
         
         if (!collections || collections.length === 0) {
@@ -2772,8 +2774,7 @@
           return;
         }
         
-        // Переключаемся в состояние формы
-        // Show form
+        // Switch to form state and show form
         document.getElementById('loading').style.display = 'none';
         document.getElementById('form').style.display = 'block';
         
@@ -2803,7 +2804,7 @@
           window.resetDropdownFocus();
         }
         
-        // Восстанавливаем сохранённое состояние после загрузки коллекций
+        // Restore saved state after collections load
         restoreState();
       }
       
@@ -2813,14 +2814,14 @@
         showSection('groups-section');
         updateCreateButton();
         
-        // Восстанавливаем выбранные темы и группы после загрузки групп
+        // Restore selected modes and groups after groups load
         restoreSelections();
       }
       
       if (msg.type === 'error') {
         console.error('Plugin error received:', msg.message);
         
-        // Показываем простой экран ошибки
+        // Show a simple error screen
         document.body.innerHTML = `
           <div style="
             display: flex;

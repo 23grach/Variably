@@ -1,9 +1,13 @@
 /**
  * Variables Sheet - Figma plugin for creating variable tables
- * 
- * This plugin automatically generates beautiful tables from Figma variable collections.
- * Supports all variable types, multiple modes/themes, grouping by prefixes
- * and intelligent value formatting.
+ *
+ * Automatically generates clean, readable tables from Figma variable collections.
+ * - Supports all variable types and multiple modes/themes
+ * - Preserves Variables panel order for consistent grouping
+ * - Groups by name prefixes and formats values intelligently
+ * - Optional Dev Token column and optional color swatches
+ * - Gradient previews for CSS-like linear-gradient and radial-gradient values
+ * - Persists user settings (theme, Dev Token visibility, swatches visibility)
  */
 
 figma.showUI(__html__, { width: 400, height: 700 });
@@ -419,9 +423,13 @@ async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'pri
 }
 
 /**
- * Central message handler for user interface
- * Routes UI commands to appropriate plugin functions
- * Provides error handling and operation logging
+ * Central message handler for the user interface.
+ * Routes UI commands to appropriate plugin functions with validation.
+ * Supports the following message types:
+ * - 'load-collections': loads local variable collections
+ * - 'load-groups': { collectionId } loads grouped variables for a collection
+ * - 'create-table': { collectionId, collectionName, modes, groups, tableTheme?, showDevToken?, showSwatches? }
+ * - 'save-settings': { settings } persists user settings
  */
   figma.ui.onmessage = async (msg: { type: string; collectionId?: string; collectionName?: string; modes?: ModeInfo[]; groups?: GroupInfo[]; tableTheme?: string; showDevToken?: boolean; showSwatches?: boolean; settings?: UserSettings }) => {
     /** Debug logging of messages */
@@ -476,9 +484,9 @@ async function createTextNodesBatch(texts: Array<{ text: string; fontType?: 'pri
 };
 
 /**
- * Loads all local variable collections and sends data to UI
- * Counts variables in each collection to display statistics
- * Handles errors and sends error notifications to interface
+ * Loads all local variable collections and sends data to the UI.
+ * Counts variables in each collection to display statistics.
+ * Handles errors and notifies the UI.
  */
 async function loadCollections(): Promise<void> {
   try {
@@ -519,17 +527,23 @@ async function loadCollections(): Promise<void> {
 }
 
 /**
- * Analyzes and groups variables of selected collection by prefixes
- * Extracts prefixes from variable names (part before first slash) and counts quantity
- * Sorts groups alphabetically for convenient navigation
- * @param collectionId Collection identifier for analysis
+ * Analyzes and groups variables of the selected collection by prefixes.
+ * Extracts prefixes from variable names (part before the first slash) and counts them.
+ * Preserves Variables panel order by using collection.variableIds.
+ * @param collectionId Collection identifier to analyze
  */
 async function loadGroups(collectionId: string): Promise<void> {
   try {
     const allVariables = await figma.variables.getLocalVariablesAsync();
-    const collectionVariables = allVariables.filter(variable => 
-      variable.variableCollectionId === collectionId
-    );
+    const collection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
+    if (!collection) {
+      throw new Error('Collection not found');
+    }
+    /** Preserve Variables panel order using collection.variableIds */
+    const byId = new Map(allVariables.map(v => [v.id, v]));
+    const collectionVariables = collection.variableIds
+      .map(id => byId.get(id))
+      .filter((v): v is Variable => !!v);
     
     const totalVariables = collectionVariables.length;
     
@@ -549,14 +563,12 @@ async function loadGroups(collectionId: string): Promise<void> {
       }
     });
     
-    /** Create list of groups */
+    /** Create list of groups (preserve original Figma order) */
     let groups: GroupInfo[] = Array.from(groupsMap.entries())
-      .map(([prefix, count]) => ({ prefix, count }))
-      .sort((a, b) => a.prefix.localeCompare(b.prefix, 'en', { sensitivity: 'base' }));
+      .map(([prefix, count]) => ({ prefix, count }));
     
     /** Add individual variables to list */
     const individualGroups: GroupInfo[] = individualVariables
-      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
       .map(variableName => ({
         prefix: variableName,
         count: 1,
@@ -581,8 +593,9 @@ async function loadGroups(collectionId: string): Promise<void> {
 }
 
 /**
- * Filters collection variables by user-selected groups
- * Returns only variables belonging to specified prefixes
+ * Filters collection variables by user-selected groups.
+ * Returns only variables that belong to the specified prefixes or individual variables.
+ * Preserves the Variables panel order of the collection.
  * @param collectionId Variable collection identifier
  * @param groups Array of selected groups for filtering
  * @returns Promise with filtered array of variables
@@ -593,11 +606,12 @@ async function getFilteredVariables(collectionId: string, groups: GroupInfo[]): 
     throw new Error('Collection not found');
   }
 
-  /** Get all variables from collection */
+  /** Get variables in the same order as Variables panel */
   const allVariables = await figma.variables.getLocalVariablesAsync();
-  const collectionVariables = allVariables.filter(variable => 
-    variable.variableCollectionId === collectionId
-  );
+  const byId = new Map(allVariables.map(v => [v.id, v]));
+  const collectionVariables = collection.variableIds
+    .map(id => byId.get(id))
+    .filter((v): v is Variable => !!v);
 
   /** Filter variables by selected groups */
   const filteredVariables = collectionVariables.filter(variable => {
@@ -626,9 +640,9 @@ async function getFilteredVariables(collectionId: string, groups: GroupInfo[]): 
 }
 
 /**
- * Processes Figma variable and resolves its values for all modes/themes
- * Extracts values, processes aliases and prepares data for display
- * For color variables additionally resolves actual colors and aliases
+ * Processes a Figma variable and resolves its values for all modes/themes.
+ * Extracts values, resolves aliases, and prepares data for display.
+ * For color variables, resolves concrete colors and alias variable references per mode.
  * @param variable Figma variable to process
  * @param modes Array of collection modes/themes
  * @returns Promise with fully processed variable data
@@ -677,8 +691,8 @@ async function processVariableData(variable: Variable, modes: ModeInfo[]): Promi
 }
 
 /**
- * Sorts variables hierarchically: first by prefixes, then alphabetically within groups
- * Ensures logical grouping and ordering of variables in the table
+ * Utility: Sorts variables by prefix and then by full path name.
+ * Note: Currently unused — table generation preserves Variables panel order.
  * @param variablesData Array of variable data for sorting
  * @returns Sorted array of variables
  */
@@ -705,13 +719,16 @@ function sortVariablesByPrefixAndName(variablesData: VariableData[]): VariableDa
 }
 
 /**
- * Main function for creating variable table from selected collection
- * Coordinates the entire process: filtering, data processing, sorting and UI creation
- * Handles errors and shows notifications to user
+ * Creates the variables table from a selected collection.
+ * Orchestrates filtering, data resolution, table building, and error reporting.
+ * Preserves the Variables panel order and supports optional columns and swatches.
  * @param collectionId Variable collection identifier
  * @param collectionName Collection name for display
  * @param modes Array of collection modes/themes
  * @param groups User-selected variable groups
+ * @param tableTheme Table theme ('light' | 'dark')
+ * @param showDevToken Whether to include the Dev Token column in the main table
+ * @param showSwatches Whether to render color swatches/indicators
  */
 async function createVariablesTable(collectionId: string, collectionName: string, modes: ModeInfo[], groups: GroupInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<void> {
   try {
@@ -723,11 +740,8 @@ async function createVariablesTable(collectionId: string, collectionName: string
       filteredVariables.map(variable => processVariableData(variable, modes))
     );
 
-    /** 3. Sort variables */
-    const sortedVariablesData = sortVariablesByPrefixAndName(variablesData);
-    
-    /** 4. Create table */
-    await createTableFrame(sortedVariablesData, modes, tableTheme, showDevToken, showSwatches, collectionName);
+    /** 3. Create table without additional sorting to preserve Figma order */
+    await createTableFrame(variablesData, modes, tableTheme, showDevToken, showSwatches, collectionName);
     
     /** Show success notification and close plugin */
     figma.notify('✅ Variables table created successfully!', { timeout: 3000 });
@@ -747,8 +761,8 @@ async function createVariablesTable(collectionId: string, collectionName: string
 }
 
 /**
- * Formats variable name for table display
- * Replaces slashes with dashes for improved readability
+ * Formats a variable name for display.
+ * Replaces slashes with dashes for improved readability.
  * @param variableName Original variable name from Figma
  * @returns Formatted name for display
  */
@@ -757,9 +771,8 @@ function formatVariableName(variableName: string): string {
 }
 
 /**
- * Generates CSS custom property from Figma variable name
- * Converts name to valid CSS variable format with var() prefix
- * Cleans invalid characters and converts to lowercase
+ * Generates a CSS custom property from a Figma variable name.
+ * Normalizes the name and returns the var(--token-name) string.
  * @param variableName Original variable name from Figma
  * @returns CSS custom property in var(--variable-name) format
  */
@@ -773,10 +786,10 @@ function generateDevToken(variableName: string): string {
 }
 
 /**
- * Converts RGB(A) color to readable HEX format for display
- * Converts 0-1 values to 0-255, adds transparency percentage when needed
+ * Converts an RGB(A) color object to a readable HEX string for display.
+ * Converts 0-1 component values to 0-255; appends transparency percentage if a !== 1.
  * @param color Color object with r, g, b components and optional a
- * @returns HEX format string with transparency percentages when needed
+ * @returns HEX string, optionally with an appended opacity percentage (e.g. "#RRGGBB 80%")
  */
 function formatColor(color: { r: number; g: number; b: number; a?: number }): string {
   const r = Math.round(color.r * 255);
@@ -796,10 +809,10 @@ function formatColor(color: { r: number; g: number; b: number; a?: number }): st
 }
 
 /**
- * Formats numeric values for optimal table display
- * Removes unnecessary zeros, rounds to reasonable precision
+ * Formats numeric values for table display.
+ * Removes unnecessary zeros and rounds to 3 decimal places if needed.
  * @param num Number to format
- * @returns String representation of number without unnecessary decimal places
+ * @returns String representation without unnecessary decimal places
  */
 function formatNumber(num: number): string {
   /** If it's an integer, show without decimal places */
@@ -822,13 +835,13 @@ function formatNumber(num: number): string {
 }
 
 /**
- * Resolves variable value for table display
- * Handles variable aliases, color objects and primitive types
- * Recursively resolves references to other variables
+ * Resolves a variable value for table display.
+ * Handles variable aliases, color objects, and primitive types.
+ * For aliases, returns the referenced variable name (formatted) when possible.
  * @param variable Figma variable to process
  * @param modeId Mode/theme identifier
  * @param value Raw variable value from Figma API
- * @returns Promise with resolved value for display
+ * @returns Promise with the resolved value for display
  */
 async function resolveVariableValue(variable: Variable, modeId: string, value: unknown): Promise<string | number | boolean | { r: number; g: number; b: number; a?: number }> {
   if (value === undefined || value === null) {
@@ -861,9 +874,8 @@ async function resolveVariableValue(variable: Variable, modeId: string, value: u
 }
 
 /**
- * Recursively resolves color value of variable, including aliases
- * Specialized function for working with color variables and their references
- * Provides fallback to available modes when value is missing in current mode
+ * Recursively resolves the color value of a variable, including aliases.
+ * If a value is missing for the current mode, falls back to the first available mode.
  * @param variable Figma variable to process
  * @param modeId Mode/theme identifier
  * @param value Raw variable value from Figma API
@@ -962,10 +974,12 @@ function groupVariablesByPrefix(variablesData: VariableData[]): Map<string, Vari
 }
 
 /**
- * Creates main table with Design Token and Dev Token columns
+ * Creates the main variables table with Design Token and optional Dev Token columns.
  * @param groupedVariables Variables grouped by prefixes
  * @param tableTheme Table theme ('light' or 'dark')
- * @returns FrameNode of main table
+ * @param showDevToken Whether to include the Dev Token column
+ * @param showSwatches Whether to render color swatches/indicators in value cells
+ * @returns FrameNode representing the main table
  */
 async function createMainVariablesTable(groupedVariables: Map<string, VariableData[]>, tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true): Promise<FrameNode> {
   const mainTableFrame = figma.createFrame();
@@ -987,11 +1001,12 @@ async function createMainVariablesTable(groupedVariables: Map<string, VariableDa
 }
 
 /**
- * Создает таблицы для каждой темы с колонкой значений
- * @param groupedVariables - Группированные переменные по префиксам
- * @param modes - Массив режимов/тем
- * @param tableTheme - Тема таблицы ('light' или 'dark')
- * @returns Массив FrameNode для каждой темы
+ * Creates per-mode tables, each with a single Values column.
+ * @param groupedVariables Variables grouped by prefixes
+ * @param modes Array of modes/themes
+ * @param tableTheme Table theme ('light' or 'dark')
+ * @param showSwatches Whether to render color swatches/indicators in value cells
+ * @returns Array of FrameNodes for each theme/mode
  */
 async function createThemeVariablesTables(groupedVariables: Map<string, VariableData[]>, modes: ModeInfo[], tableTheme: string, showSwatches: boolean = true): Promise<FrameNode[]> {
   const themeFrames: FrameNode[] = [];
@@ -1019,13 +1034,15 @@ async function createThemeVariablesTables(groupedVariables: Map<string, Variable
 }
 
 /**
- * Creates variable group (for main table or theme)
+ * Creates a variable group frame (for the main table or a specific theme table).
  * @param prefix Group prefix
- * @param variables Group variables
+ * @param variables Variables in the group
  * @param type Table type: 'main' or 'theme'
- * @param mode Mode information (only for 'theme' type)
+ * @param mode Mode information (required for 'theme' type)
  * @param tableTheme Table theme ('light' or 'dark')
- * @returns FrameNode of variable group
+ * @param showDevToken Whether to include the Dev Token column (main table only)
+ * @param showSwatches Whether to render color swatches/indicators in value cells
+ * @returns FrameNode representing the variable group
  */
 async function createVariableGroup(prefix: string, variables: VariableData[], type: 'main' | 'theme', mode?: ModeInfo, tableTheme: string = 'dark', showDevToken: boolean = true, showSwatches: boolean = true): Promise<FrameNode> {
   /** Create frame for group */
@@ -1066,12 +1083,14 @@ async function createVariableGroup(prefix: string, variables: VariableData[], ty
 }
 
 /**
- * Creates data row for theme (values column only)
+ * Creates a data row for a theme table (values column only).
+ * Uses resolved alias variables for color bindings where possible and respects showSwatches.
  * @param variable Variable data
  * @param mode Mode information
  * @param isLast Whether the row is last in the group
  * @param tableTheme Table theme ('light' or 'dark')
- * @returns FrameNode of data row
+ * @param showSwatches Whether to render color swatches/indicators in value cells
+ * @returns FrameNode representing the data row
  */
 async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast: boolean, tableTheme: string, showSwatches: boolean = true): Promise<FrameNode> {
   const value = variable.values[mode.modeId];
@@ -1101,7 +1120,9 @@ async function createThemeDataRow(variable: VariableData, mode: ModeInfo, isLast
 }
 
 /**
- * Positions table in current user viewport
+ * Positions the table in the current user viewport and focuses it.
+ * Appends to current page, positions near the top-left of the visible area,
+ * selects the frame and scrolls/zooms into view.
  * @param tableFrame Table frame to position
  */
 function positionTableInViewport(tableFrame: FrameNode): void {
@@ -1122,10 +1143,15 @@ function positionTableInViewport(tableFrame: FrameNode): void {
 }
 
 /**
- * Creates table with variables separated by groups with repeating headers
- * Coordinating function that manages the entire table creation process
+ * Creates the full table frame consisting of the main table and per-mode tables.
+ * Groups variables by prefix, builds the main columns and the theme columns,
+ * then positions the result in the viewport.
  * @param variablesData Array of variable data
  * @param modes Array of modes/themes
+ * @param tableTheme Table theme ('light' or 'dark')
+ * @param showDevToken Whether to include the Dev Token column in the main table
+ * @param showSwatches Whether to render color swatches/indicators in value cells
+ * @param collectionName Optional name to use for the table frame
  */
 async function createTableFrame(variablesData: VariableData[], modes: ModeInfo[], tableTheme: string, showDevToken: boolean = true, showSwatches: boolean = true, collectionName?: string): Promise<void> {
   /** Create main frame for table */
@@ -1369,9 +1395,10 @@ function createColorIndicator(
 }
 
 /**
- * Создает мини-превью для CSS-градиента (linear-gradient, radial-gradient)
+ * Creates a mini preview for a CSS-like gradient value (linear-gradient, radial-gradient).
+ * Parses angle and color stops; falls back to a neutral fill if parsing fails.
  * @param gradientString CSS gradient string
- * @returns RectangleNode с градиентной заливкой
+ * @returns RectangleNode with gradient fill
  */
 function createGradientPreview(gradientString: string): RectangleNode {
   const size = TABLE_CONFIG.sizes.colorCircle;
@@ -1493,7 +1520,8 @@ function createGradientPreview(gradientString: string): RectangleNode {
 }
 
 /**
- * Универсальный парсер цвета (hex, rgb, rgba, hsl, hsla)
+ * Universal color parser supporting hex, rgb/rgba, and hsl/hsla inputs.
+ * Returns 0-255 RGB values and alpha in [0,1].
  */
 function parseToRgb(color: string): { r: number; g: number; b: number; a: number } {
   color = color.trim();
@@ -1562,11 +1590,11 @@ function parseToRgb(color: string): { r: number; g: number; b: number; a: number
 }
 
 /**
- * Форматирует различные типы значений переменных для читаемого отображения
- * Обрабатывает строки, числа, булевы значения и цветовые объекты
- * Применяет специальное форматирование для имен переменных и цветов
- * @param value Значение переменной любого поддерживаемого типа
- * @returns Отформатированная строка для отображения в таблице
+ * Formats various variable value types for readable display.
+ * Handles strings, numbers, booleans, and color objects.
+ * Applies special formatting for variable names (slashes to dashes) and colors.
+ * @param value Variable value of any supported type
+ * @returns Formatted string for display in the table
  */
 function formatValueForDisplay(value: string | number | boolean | { r: number; g: number; b: number; a?: number }): string {
   if (typeof value === 'string') {
@@ -1591,11 +1619,11 @@ function formatValueForDisplay(value: string | number | boolean | { r: number; g
 }
 
 /**
- * Создает текстовый элемент с единообразным стилем для значений переменных
- * Применяет основной шрифт, размер и цвет согласно дизайн-системе
- * @param displayValue Отформатированное значение для отображения
- * @param tableTheme Тема таблицы для определения цветов
- * @returns Промис с настроенным текстовым элементом
+ * Creates a text node with consistent styling for variable values.
+ * Applies primary font, color, and truncation with a max width; auto-resizes height.
+ * @param displayValue Formatted value to display
+ * @param tableTheme Table theme used to derive text color
+ * @returns Promise resolving to a configured text node
  */
 async function createValueText(displayValue: string, tableTheme: string = 'dark'): Promise<TextNode> {
   const textNode = figma.createText();
@@ -1614,16 +1642,17 @@ async function createValueText(displayValue: string, tableTheme: string = 'dark'
 }
 
 /**
- * Создает комплексную ячейку для отображения значения переменной
- * Включает цветовой индикатор для цветовых переменных и форматированный текст
- * Использует горизонтальный layout для размещения индикатора и текста
- * @param value Значение переменной для отображения
- * @param type Тип переменной Figma (определяет наличие цветового индикатора)
- * @param width Ширина ячейки в пикселях
- * @param colorValue Разрешенное цветовое значение (для цветовых переменных)
- * @param aliasVariable Переменная-алиас для привязки цвета (опционально)
- * @param tableTheme - Тема таблицы ('light' или 'dark')
- * @returns Промис с настроенной ячейкой значения
+ * Creates a composite value cell for displaying a variable value.
+ * If the value is a gradient string, renders a gradient preview; otherwise, may render a color swatch.
+ * Always renders formatted text with truncation. Respects showSwatches and tableTheme.
+ * @param value Variable value to display
+ * @param type Figma variable type (determines color indicator availability)
+ * @param width Cell width in pixels
+ * @param colorValue Resolved color value (for color variables)
+ * @param aliasVariable Alias variable for binding color (optional)
+ * @param tableTheme Table theme ('light' or 'dark')
+ * @param showSwatches Whether to render color swatches/indicators
+ * @returns Promise resolving to a configured value cell
  */
 async function createValueCell(
   value: string | number | boolean | { r: number; g: number; b: number; a?: number }, 
@@ -1690,8 +1719,8 @@ async function createHeaderCell(text: string, width: number, tableTheme: string 
 }
 
 /**
- * Специализированный класс ошибок для проблем с переменными
- * Содержит дополнительную информацию о проблемной переменной
+ * Specialized error class for variable-related issues.
+ * Carries optional context of the variable name.
  */
 class _VariableError extends Error {
   constructor(message: string, public readonly variableName?: string) {
@@ -1701,8 +1730,8 @@ class _VariableError extends Error {
 }
 
 /**
- * Специализированный класс ошибок для проблем с коллекциями
- * Содержит дополнительную информацию о проблемной коллекции
+ * Specialized error class for collection-related issues.
+ * Carries optional context of the collection id.
  */
 class _CollectionError extends Error {
   constructor(message: string, public readonly collectionId?: string) {
@@ -1712,10 +1741,10 @@ class _CollectionError extends Error {
 }
 
 /**
- * Логирует ошибки в консоль с временными метками и контекстом
- * Обеспечивает структурированное логирование для отладки
- * @param error Ошибка для логирования
- * @param context Дополнительный контекст выполнения
+ * Logs errors to the console with timestamps and optional context.
+ * Provides structured logging for debugging.
+ * @param error Error to log
+ * @param context Optional execution context
  */
 function logError(error: Error, context?: string): void {
   const timestamp = new Date().toISOString();
@@ -1727,11 +1756,11 @@ function logError(error: Error, context?: string): void {
 }
 
 /**
- * Обертка для безопасного выполнения асинхронных операций
- * Перехватывает ошибки, логирует их и возвращает null вместо падения
- * @param fn Асинхронная функция для выполнения
- * @param context Контекст для логирования ошибок
- * @returns Промис с результатом функции или null при ошибке
+ * Wrapper for safely executing async operations.
+ * Catches errors, logs them, and returns null instead of throwing.
+ * @param fn Async function to execute
+ * @param context Context for error logging
+ * @returns Promise resolving to the result or null on error
  */
 async function _safeExecute<T>(fn: () => Promise<T>, context?: string): Promise<T | null> {
   try {
@@ -1743,7 +1772,7 @@ async function _safeExecute<T>(fn: () => Promise<T>, context?: string): Promise<
 }
 
 /**
- * Интерфейс для пользовательских настроек
+ * Interface for user settings.
  */
 interface UserSettings {
   tableTheme: 'light' | 'dark';
@@ -1752,7 +1781,7 @@ interface UserSettings {
 }
 
 /**
- * Настройки по умолчанию
+ * Default user settings.
  */
 const DEFAULT_SETTINGS: UserSettings = {
   tableTheme: 'dark',
@@ -1761,14 +1790,14 @@ const DEFAULT_SETTINGS: UserSettings = {
 };
 
 /**
- * Загружает сохраненные настройки пользователя
+ * Loads saved user settings and sends them to the UI.
  */
 async function loadUserSettings(): Promise<void> {
   try {
     const savedSettings = await figma.clientStorage.getAsync('userSettings');
     const settings: UserSettings = savedSettings || DEFAULT_SETTINGS;
     
-    // Отправляем настройки в UI
+    // Send settings to the UI
     figma.ui.postMessage({
       type: 'settings-loaded',
       settings: settings
@@ -1777,7 +1806,7 @@ async function loadUserSettings(): Promise<void> {
     console.log('User settings loaded:', settings);
   } catch (error) {
     console.error('Failed to load user settings:', error);
-    // В случае ошибки отправляем настройки по умолчанию
+    // On error, send default settings
     figma.ui.postMessage({
       type: 'settings-loaded',
       settings: DEFAULT_SETTINGS
@@ -1786,7 +1815,7 @@ async function loadUserSettings(): Promise<void> {
 }
 
 /**
- * Сохраняет настройки пользователя
+ * Saves user settings.
  */
 async function saveUserSettings(settings: UserSettings): Promise<void> {
   try {
@@ -1798,10 +1827,9 @@ async function saveUserSettings(settings: UserSettings): Promise<void> {
 }
 
 /**
- * Проверяет, начинается ли строка с указанного ключевого слова,
- * игнорируя пробелы и кавычки в начале и конце строки.
- * @param value Исходная строка
- * @param keyword Ключевое слово (например, 'linear-gradient')
+ * Checks whether a string starts with a keyword, ignoring surrounding quotes/whitespace.
+ * @param value Input string
+ * @param keyword Keyword (e.g., 'linear-gradient')
  */
 function startsWithKeyword(value: string, keyword: string): boolean {
   if (typeof value !== 'string') return false;
